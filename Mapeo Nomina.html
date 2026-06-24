@@ -1,0 +1,2737 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Mapeo de Procesos</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --font:'Segoe UI',Arial,sans-serif;
+  --bg:#f0f4f8;--white:#fff;--border:#d0d7de;--text:#1a1a2e;--text2:#5a6a7a;
+}
+body{font-family:var(--font);background:var(--bg);display:flex;flex-direction:column;height:100vh;overflow:hidden;color:var(--text)}
+
+/* TABS */
+.tabs{display:flex;align-items:stretch;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;min-height:36px}
+.tabs::-webkit-scrollbar{height:3px}.tabs::-webkit-scrollbar-thumb{background:#d0d7de}
+.tab{display:flex;align-items:center;gap:5px;padding:0 12px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0;min-width:110px;position:relative;transition:background .12s}
+.tab:hover{background:#f8faff}.tab.active{background:#eff6ff;color:#1a73e8;font-weight:600}
+.tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:#1a73e8}
+.tab.merged.active{background:#f0fdf4;color:#15803d}.tab.merged.active::after{background:#15803d}
+.tab-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.tab-name{flex:1;overflow:hidden;text-overflow:ellipsis}
+.tab-x{opacity:0;background:none;border:none;cursor:pointer;font-size:13px;color:#94a3b8;padding:0 2px;line-height:1}
+.tab:hover .tab-x{opacity:1}.tab-x:hover{color:#ef4444}
+.tab-add{display:flex;align-items:center;padding:0 12px;cursor:pointer;color:#94a3b8;font-size:20px;font-weight:300;transition:color .12s;flex-shrink:0}
+.tab-add:hover{color:#1a73e8}
+.tab-merge{display:flex;align-items:center;gap:5px;padding:0 12px;cursor:pointer;font-size:11px;font-weight:600;color:#15803d;border-left:1px solid var(--border);flex-shrink:0;white-space:nowrap}
+.tab-merge:hover{background:#f0fdf4}
+
+/* TOOLBAR */
+.tb{display:flex;align-items:center;gap:4px;padding:5px 10px;background:#fafbfc;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;min-height:40px}
+.tb-sep{width:1px;height:20px;background:var(--border);margin:0 3px;flex-shrink:0}
+.tb-lbl{font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+.btn{display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--white);color:var(--text2);font-family:var(--font);font-size:11px;font-weight:500;cursor:pointer;transition:all .12s;white-space:nowrap}
+.btn:hover{background:#f0f4f8;color:var(--text)}.btn.active{background:#1a73e8;color:#fff;border-color:#1a73e8}
+.btn svg{width:13px;height:13px;flex-shrink:0}
+.ab{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid;cursor:pointer;transition:all .12s;white-space:nowrap}
+.ab:hover{filter:brightness(.93)}
+.ab-c{background:#d4edda;color:#1a5c2a;border-color:#82c996}
+.ab-p{background:#dbeafe;color:#1e3a5f;border-color:#7ab8f5}
+.ab-r{background:#fef9c3;color:#7a5c00;border-color:#f5c842}
+.ab-d{background:#fee2e2;color:#7f1d1d;border-color:#fca5a5}
+
+/* CANVAS */
+.cw{flex:1;overflow:hidden;position:relative;background:#fff}
+.grid-layer{position:absolute;top:0;left:0;pointer-events:none;width:100%;height:100%;}
+.cw svg.main{position:absolute;top:0;left:0;width:100%;height:100%;cursor:default}
+.cw svg.main.connecting{cursor:crosshair}
+.cw svg.main.panning{cursor:grab}
+.cw svg.main.panning:active{cursor:grabbing}
+.cw svg.main.resizing{cursor:se-resize}
+.cw svg.main.dragging{cursor:move}
+
+/* STATUS */
+.sb{display:flex;align-items:center;gap:10px;padding:3px 12px;background:#fff;border-top:1px solid var(--border);font-size:10px;color:#94a3b8;flex-shrink:0;font-family:monospace}
+.mchip{padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700}
+.mchip.s{background:#eff6ff;color:#1a73e8}
+.mchip.p{background:#fef9c3;color:#7a5c00}
+.mchip.c{background:#f0fdf4;color:#16a34a}
+.hint{position:fixed;bottom:36px;left:50%;transform:translateX(-50%);background:rgba(20,20,30,.82);color:#fff;border-radius:20px;padding:5px 16px;font-size:11px;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;z-index:600}
+.hint.show{opacity:1}
+
+/* Context menu */
+.ctx-menu{position:fixed;background:#fff;border:1px solid #d0d7de;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:6px;z-index:700;min-width:180px;display:none}
+.ctx-menu.open{display:block}
+.ctx-item{padding:7px 12px;border-radius:6px;font-size:12px;font-family:'Segoe UI',Arial,sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px;color:#1a1a2e;transition:background .1s}
+.ctx-item:hover{background:#eff6ff;color:#1a73e8}
+.ctx-item.danger{color:#c62828}.ctx-item.danger:hover{background:#fee2e2;color:#c62828}
+.ctx-sep{height:1px;background:#e2e8f0;margin:4px 0}
+
+/* MODALS */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.3);display:none;align-items:center;justify-content:center;z-index:500;backdrop-filter:blur(2px)}
+.ov.open{display:flex}
+.modal{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px 22px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 8px 30px rgba(0,0,0,.15)}
+.modal.wide{width:540px}
+.mh2{font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.mbadge{font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:10px;color:var(--text2);font-weight:600;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+.field input,.field textarea,.field select{width:100%;background:#f8f9fa;border:1px solid var(--border);border-radius:6px;padding:6px 9px;color:var(--text);font-family:var(--font);font-size:12px;resize:vertical;transition:border-color .15s}
+.field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:#1a73e8;background:#fff}
+.field textarea{min-height:55px}
+.mact{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
+.bsave{background:#1a73e8;color:#fff;border:none;padding:6px 16px;border-radius:6px;font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer}
+.bdel{background:#fff;color:#c62828;border:1px solid #fca5a5;padding:6px 12px;border-radius:6px;font-family:var(--font);font-size:12px;cursor:pointer}
+.bcan{background:#fff;color:var(--text2);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-family:var(--font);font-size:12px;cursor:pointer}
+.cx{position:absolute;top:10px;right:12px;background:none;border:none;font-size:18px;cursor:pointer;color:#94a3b8}
+
+.egrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px}
+.ecard{border:1.5px solid var(--border);border-radius:10px;padding:12px 8px;cursor:pointer;transition:all .15s;text-align:center;background:#fafafa}
+.ecard:hover{border-color:#1a73e8;background:#eff6ff;transform:translateY(-1px)}
+.ecard .ei{font-size:22px;margin-bottom:4px}.ecard .et{font-size:11px;font-weight:700}.ecard .ed{font-size:10px;color:var(--text2)}
+
+.proc-list{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.proc-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all .12s;background:#fafafa}
+.proc-item:hover,.proc-item.picked{border-color:#1a73e8;background:#eff6ff}
+.pi-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.merge-info{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px;font-size:11px;color:#15803d;margin-top:8px;line-height:1.6}
+
+.cswatches{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px}
+.csw{width:24px;height:24px;border-radius:6px;border:2px solid transparent;cursor:pointer;transition:all .12s}
+.csw.sel{border-color:#1a1a2e;transform:scale(1.15)}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="tabs" id="tabs">
+  <div class="tab-add" id="tab-add" title="Nuevo proceso">＋</div>
+  <div class="tab-merge" onclick="oMerge()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3M12 3v18"/></svg>
+    Unir procesos
+  </div>
+</div>
+
+<div class="tb">
+  <span class="tb-lbl">Modo</span>
+  <button class="btn active" id="bsel" onclick="setMode('s')" title="Seleccionar y editar (V)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-7 1-4 7L5 3z"/></svg>Seleccionar
+  </button>
+  <button class="btn" id="bpan" onclick="setMode('p')" title="Mover el mapa (M)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M12 12v0"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>Mover mapa
+  </button>
+  <button class="btn" id="bcon" onclick="setMode('c')" title="Conectar con flecha (C)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M15 8l4 4-4 4"/></svg>Conectar
+  </button>
+  <div class="tb-sep"></div>
+  <span class="tb-lbl">Agregar</span>
+  <button class="ab ab-c" onclick="addNode('cedis')">+ CEDIS</button>
+  <button class="ab ab-p" onclick="addNode('plan')">+ Planeación</button>
+  <button class="ab ab-r" onclick="addNode('prea')">+ Prealistador</button>
+  <button class="ab ab-d" onclick="addNode('dec')">⬦ Decisión</button>
+  <button class="ab" style="background:#f0fdf4;color:#15803d;border-color:#86efac" onclick="oAddArea()">▭ Área</button>
+  <button class="ab" style="background:#f8f9fa;color:#374151;border-color:#d1d5db" onclick="addLabel()">T Texto</button>
+  <div class="tb-sep"></div>
+  <button class="btn" onclick="deleteSelected()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Eliminar
+  </button>
+  <button class="btn" onclick="undoAction()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a5 5 0 0 1 0 10H7M3 10l4-4M3 10l4 4"/></svg>Deshacer
+  </button>
+  <div class="tb-sep"></div>
+  <button class="btn" onclick="fitView()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>Ajustar
+  </button>
+  <button class="btn" id="btn-grid" onclick="toggleGrid()" title="Mostrar/ocultar grilla de puntos (G)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="12" cy="4" r="1.5" fill="currentColor"/><circle cx="20" cy="4" r="1.5" fill="currentColor"/>
+      <circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="20" cy="12" r="1.5" fill="currentColor"/>
+      <circle cx="4" cy="20" r="1.5" fill="currentColor"/><circle cx="12" cy="20" r="1.5" fill="currentColor"/><circle cx="20" cy="20" r="1.5" fill="currentColor"/>
+    </svg>Grilla
+  </button>
+  <button class="btn" onclick="oExport()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Exportar
+  </button>
+  <button class="btn" onclick="saveAll()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Guardar todo
+  </button>
+  <button class="btn" onclick="loadAll()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Cargar
+  </button>
+  <button class="btn" onclick="importExcel()" title="Importar Excel a la pestaña actual">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M12 8v8"/></svg>Excel→Tab
+  </button>
+</div>
+
+<div class="cw" id="cw">
+  <canvas class="grid-layer" id="grid-canvas"></canvas>
+  <svg class="main" id="mainsvg" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5"
+        markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M1 1L9 5L1 9" fill="none" stroke="context-stroke"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker>
+    </defs>
+    <g id="root"></g>
+  </svg>
+</div>
+
+<div class="sb">
+  <span class="mchip s" id="mchip">SELECCIONAR</span>
+  <span id="st-n">0 actividades</span>
+  <span id="st-a">0 conexiones</span>
+  <span id="st-proc" style="font-weight:600;color:#1a1a2e"></span>
+  <span style="margin-left:auto">V = Seleccionar · M = Mover mapa · C = Conectar · G = Grilla · Del = Eliminar · Ctrl+A = Todo · Ctrl+Z = Deshacer</span>
+</div>
+<div class="hint" id="hint"></div>
+
+<!-- NODE EDIT MODAL -->
+<div class="ov" id="m-node"><div class="modal">
+  <button class="cx" onclick="cm('m-node')">×</button>
+  <div class="mh2"><span class="mbadge" id="mbadge"></span>Detalle de Actividad</div>
+  <div class="field"><label>Nombre *</label><input id="f-title" type="text"></div>
+  <div class="field"><label>Carril
+    <button type="button" onclick="oNewLane()" style="margin-left:8px;padding:1px 8px;border-radius:12px;border:1px solid #7ab8f5;background:#eff6ff;color:#1a73e8;font-size:10px;font-weight:600;cursor:pointer">+ Nuevo carril</button>
+    <button type="button" onclick="oManageLanes()" style="margin-left:4px;padding:1px 8px;border-radius:12px;border:1px solid #d0d7de;background:#f8f9fa;color:#5a6a7a;font-size:10px;cursor:pointer">Gestionar</button>
+  </label>
+    <select id="f-lane" style="margin-top:4px">
+      <option value="cedis">CEDIS</option>
+      <option value="plan">Planeación</option>
+      <option value="prea">Prealistador</option>
+      <option value="dec">Decisión / Excepción</option>
+    </select></div>
+  <div class="field"><label>Responsable</label><input id="f-resp" type="text"></div>
+  <div class="field"><label>Entrada (Input)</label><input id="f-inp" type="text"></div>
+  <div class="field"><label>Salida (Output)</label><input id="f-out" type="text"></div>
+  <div class="field"><label>Sistema / Herramienta</label><input id="f-sys" type="text"></div>
+  <div class="field"><label>Tiempo estimado</label><input id="f-time" type="text"></div>
+  <div class="field"><label>Descripción / Observaciones</label><textarea id="f-desc" rows="3"></textarea></div>
+  <div class="mact">
+    <button class="bdel" onclick="delEditing()">Eliminar actividad</button>
+    <button class="bcan" onclick="cm('m-node')">Cancelar</button>
+    <button class="bsave" onclick="saveNode()">Guardar</button>
+  </div>
+</div></div>
+
+<!-- NEW PROCESS MODAL -->
+<div class="ov" id="m-new"><div class="modal" style="width:340px">
+  <button class="cx" onclick="cm('m-new')">×</button>
+  <div class="mh2">Nuevo proceso</div>
+  <div class="field"><label>Nombre del proceso</label><input id="np-name" type="text" placeholder="Ej: Despacho, Calidad, Logística..."></div>
+  <div class="field"><label>Color de pestaña</label>
+    <div class="cswatches" id="tab-swatches">
+      <div class="csw sel" style="background:#dbeafe" data-c="#3b82f6" onclick="pickTC(this)"></div>
+      <div class="csw" style="background:#d4edda" data-c="#22c55e" onclick="pickTC(this)"></div>
+      <div class="csw" style="background:#fef9c3" data-c="#eab308" onclick="pickTC(this)"></div>
+      <div class="csw" style="background:#fee2e2" data-c="#ef4444" onclick="pickTC(this)"></div>
+      <div class="csw" style="background:#f3e8ff" data-c="#a855f7" onclick="pickTC(this)"></div>
+      <div class="csw" style="background:#fff7ed" data-c="#f97316" onclick="pickTC(this)"></div>
+      <div class="csw" style="background:#fce7f3" data-c="#ec4899" onclick="pickTC(this)"></div>
+      <div class="csw" style="background:#f0fdf4" data-c="#10b981" onclick="pickTC(this)"></div>
+    </div></div>
+  <div class="mact"><button class="bcan" onclick="cm('m-new')">Cancelar</button><button class="bsave" onclick="createProcess()">Crear</button></div>
+</div></div>
+
+<!-- MERGE MODAL -->
+<div class="ov" id="m-merge"><div class="modal wide">
+  <button class="cx" onclick="cm('m-merge')">×</button>
+  <div class="mh2">Unir procesos en una vista</div>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">Selecciona los procesos a unir. Se crea una nueva pestaña con todos los elementos juntos, que puedes reorganizar y conectar.</p>
+  <div class="proc-list" id="merge-list"></div>
+  <div class="merge-info" id="merge-info" style="display:none"></div>
+  <div class="field" style="margin-top:10px"><label>Nombre de la vista combinada</label><input id="merge-name" type="text" value="Vista combinada"></div>
+  <div class="mact"><button class="bcan" onclick="cm('m-merge')">Cancelar</button><button class="bsave" onclick="doMerge()">Unir seleccionados</button></div>
+</div></div>
+
+<!-- NEW LANE MODAL -->
+<div class="ov" id="m-new-lane"><div class="modal" style="width:380px">
+  <button class="cx" onclick="cm('m-new-lane')">×</button>
+  <div class="mh2">Nuevo carril personalizado</div>
+  <div class="field"><label>Nombre del carril *</label>
+    <input id="nl-name" type="text" placeholder="Ej: SAC, Comercial, Calidad, Bodega..."></div>
+  <div class="field"><label>Color del carril</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px" id="nl-colors">
+      <div class="csw sel" style="background:#e0f2fe;border:2px solid #1a1a2e" data-bg="#e0f2fe" data-bd="#38bdf8" data-hd="#bae6fd" data-tx="#0c4a6e" onclick="pickNLColor(this)"></div>
+      <div class="csw" style="background:#fce7f3" data-bg="#fce7f3" data-bd="#f472b6" data-hd="#fbcfe8" data-tx="#831843" onclick="pickNLColor(this)"></div>
+      <div class="csw" style="background:#f3e8ff" data-bg="#f3e8ff" data-bd="#c084fc" data-hd="#e9d5ff" data-tx="#6b21a8" onclick="pickNLColor(this)"></div>
+      <div class="csw" style="background:#fff7ed" data-bg="#fff7ed" data-bd="#fb923c" data-hd="#fed7aa" data-tx="#7c2d12" onclick="pickNLColor(this)"></div>
+      <div class="csw" style="background:#f0fdf4" data-bg="#f0fdf4" data-bd="#4ade80" data-hd="#bbf7d0" data-tx="#14532d" onclick="pickNLColor(this)"></div>
+      <div class="csw" style="background:#fef3c7" data-bg="#fef3c7" data-bd="#fbbf24" data-hd="#fde68a" data-tx="#78350f" onclick="pickNLColor(this)"></div>
+      <div class="csw" style="background:#ffe4e6" data-bg="#ffe4e6" data-bd="#fb7185" data-hd="#fecdd3" data-tx="#881337" onclick="pickNLColor(this)"></div>
+      <div class="csw" style="background:#f1f5f9" data-bg="#f1f5f9" data-bd="#94a3b8" data-hd="#e2e8f0" data-tx="#1e293b" onclick="pickNLColor(this)"></div>
+      <div class="csw" style="background:#ecfeff" data-bg="#ecfeff" data-bd="#22d3ee" data-hd="#a5f3fc" data-tx="#164e63" onclick="pickNLColor(this)"></div>
+      <div class="csw" style="background:#f7fee7" data-bg="#f7fee7" data-bd="#a3e635" data-hd="#d9f99d" data-tx="#365314" onclick="pickNLColor(this)"></div>
+    </div>
+  </div>
+  <div style="margin-top:10px;padding:10px 12px;background:#f8f9fa;border-radius:8px;font-size:11px;color:#5a6a7a">
+    Vista previa: <span id="nl-preview" style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-left:6px">Nuevo carril</span>
+  </div>
+  <div class="mact"><button class="bcan" onclick="cm('m-new-lane')">Cancelar</button>
+    <button class="bsave" onclick="saveNewLane()">Crear carril</button></div>
+</div></div>
+
+<!-- MANAGE LANES MODAL -->
+<div class="ov" id="m-manage-lanes"><div class="modal" style="width:420px">
+  <button class="cx" onclick="cm('m-manage-lanes')">×</button>
+  <div class="mh2">Gestionar carriles</div>
+  <p style="font-size:11px;color:#5a6a7a;margin-bottom:12px">Los carriles estándar no se pueden eliminar. Los personalizados sí.</p>
+  <div id="lanes-list"></div>
+  <div class="mact"><button class="bsave" onclick="cm('m-manage-lanes')">Cerrar</button></div>
+</div></div>
+
+<!-- AREA MODAL -->
+<div class="ov" id="m-area"><div class="modal" style="width:380px">
+  <button class="cx" onclick="cm('m-area')">×</button>
+  <div class="mh2">Nueva Área</div>
+  <div class="field"><label>Nombre del área</label>
+    <input id="area-name" type="text" placeholder="Ej: CEDIS, Planeación, Turno Noche..."></div>
+  <div class="field"><label>Color de fondo</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" id="area-colors">
+      <div class="csw sel" style="background:#dbeafe;border:2px solid #1a1a2e" data-bg="#dbeafe" data-bd="#7ab8f5" data-tx="#1e3a5f" onclick="pickAreaColor(this)"></div>
+      <div class="csw" style="background:#d4edda" data-bg="#d4edda" data-bd="#82c996" data-tx="#1a5c2a" onclick="pickAreaColor(this)"></div>
+      <div class="csw" style="background:#fef9c3" data-bg="#fef9c3" data-bd="#f5c842" data-tx="#7a5c00" onclick="pickAreaColor(this)"></div>
+      <div class="csw" style="background:#fee2e2" data-bg="#fee2e2" data-bd="#fca5a5" data-tx="#7f1d1d" onclick="pickAreaColor(this)"></div>
+      <div class="csw" style="background:#f3e8ff" data-bg="#f3e8ff" data-bd="#c084fc" data-tx="#6b21a8" onclick="pickAreaColor(this)"></div>
+      <div class="csw" style="background:#fff7ed" data-bg="#fff7ed" data-bd="#fb923c" data-tx="#7c2d12" onclick="pickAreaColor(this)"></div>
+      <div class="csw" style="background:#f0fdf4" data-bg="#f0fdf4" data-bd="#4ade80" data-tx="#14532d" onclick="pickAreaColor(this)"></div>
+      <div class="csw" style="background:#f1f5f9" data-bg="#f1f5f9" data-bd="#94a3b8" data-tx="#334155" onclick="pickAreaColor(this)"></div>
+    </div>
+  </div>
+  <div class="field"><label>Tamaño inicial</label>
+    <div style="display:flex;gap:8px">
+      <div style="flex:1"><label style="font-size:10px;color:#94a3b8">Ancho px</label>
+        <input id="area-w" type="number" value="400" min="100" max="3000"></div>
+      <div style="flex:1"><label style="font-size:10px;color:#94a3b8">Alto px</label>
+        <input id="area-h" type="number" value="240" min="60" max="2000"></div>
+    </div>
+  </div>
+  <div class="mact"><button class="bcan" onclick="cm('m-area')">Cancelar</button>
+    <button class="bsave" onclick="createArea()">Crear área</button></div>
+</div></div>
+
+<!-- LABEL MODAL -->
+<div class="ov" id="m-label"><div class="modal" style="width:380px">
+  <button class="cx" onclick="cm('m-label')">×</button>
+  <div class="mh2">Texto libre</div>
+  <div class="field"><label>Texto</label>
+    <input id="lbl-text" type="text" placeholder="Ej: Ingreso de Órdenes Nuevas"></div>
+  <div class="field"><label>Tamaño</label>
+    <select id="lbl-size">
+      <option value="28">Grande (título de sección)</option>
+      <option value="20" selected>Mediano (subtítulo)</option>
+      <option value="14">Pequeño (nota)</option>
+    </select>
+  </div>
+  <div class="field"><label>Estilo</label>
+    <select id="lbl-style">
+      <option value="700">Negrita</option>
+      <option value="600" selected>Seminegrita</option>
+      <option value="400">Normal</option>
+    </select>
+  </div>
+  <div class="field"><label>Color</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" id="lbl-colors">
+      <div class="csw sel" style="background:#1e3a5f;border:2px solid #1a1a2e" data-c="#1e3a5f" onclick="pickLabelColor(this)"></div>
+      <div class="csw" style="background:#1a5c2a" data-c="#1a5c2a" onclick="pickLabelColor(this)"></div>
+      <div class="csw" style="background:#7f1d1d" data-c="#7f1d1d" onclick="pickLabelColor(this)"></div>
+      <div class="csw" style="background:#6b21a8" data-c="#6b21a8" onclick="pickLabelColor(this)"></div>
+      <div class="csw" style="background:#374151" data-c="#374151" onclick="pickLabelColor(this)"></div>
+      <div class="csw" style="background:#7c2d12" data-c="#7c2d12" onclick="pickLabelColor(this)"></div>
+      <div class="csw" style="background:#0c4a6e" data-c="#0c4a6e" onclick="pickLabelColor(this)"></div>
+      <div class="csw" style="background:#94a3b8" data-c="#94a3b8" onclick="pickLabelColor(this)"></div>
+    </div>
+  </div>
+  <div class="mact"><button class="bcan" onclick="cm('m-label')">Cancelar</button>
+    <button class="bsave" onclick="createLabel()">Agregar texto</button></div>
+</div></div>
+
+<!-- EDIT LABEL MODAL -->
+<div class="ov" id="m-label-edit"><div class="modal" style="width:380px">
+  <button class="cx" onclick="cm('m-label-edit')">×</button>
+  <div class="mh2">Editar texto</div>
+  <div class="field"><label>Texto</label><input id="lbl-edit-text" type="text"></div>
+  <div class="field"><label>Tamaño</label>
+    <select id="lbl-edit-size">
+      <option value="28">Grande</option>
+      <option value="20">Mediano</option>
+      <option value="14">Pequeño</option>
+    </select></div>
+  <div class="field"><label>Estilo</label>
+    <select id="lbl-edit-style">
+      <option value="700">Negrita</option>
+      <option value="600">Seminegrita</option>
+      <option value="400">Normal</option>
+    </select></div>
+  <div class="field"><label>Color</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" id="lbl-edit-colors">
+      <div class="csw" style="background:#1e3a5f" data-c="#1e3a5f" onclick="pickLabelEditColor(this)"></div>
+      <div class="csw" style="background:#1a5c2a" data-c="#1a5c2a" onclick="pickLabelEditColor(this)"></div>
+      <div class="csw" style="background:#7f1d1d" data-c="#7f1d1d" onclick="pickLabelEditColor(this)"></div>
+      <div class="csw" style="background:#6b21a8" data-c="#6b21a8" onclick="pickLabelEditColor(this)"></div>
+      <div class="csw" style="background:#374151" data-c="#374151" onclick="pickLabelEditColor(this)"></div>
+      <div class="csw" style="background:#7c2d12" data-c="#7c2d12" onclick="pickLabelEditColor(this)"></div>
+      <div class="csw" style="background:#0c4a6e" data-c="#0c4a6e" onclick="pickLabelEditColor(this)"></div>
+      <div class="csw" style="background:#94a3b8" data-c="#94a3b8" onclick="pickLabelEditColor(this)"></div>
+    </div>
+  </div>
+  <div class="mact">
+    <button class="bdel" onclick="deleteLabelEditing()">Eliminar</button>
+    <button class="bcan" onclick="cm('m-label-edit')">Cancelar</button>
+    <button class="bsave" onclick="saveLabelEdit()">Guardar</button>
+  </div>
+</div></div>
+
+<!-- EXPORT MODAL -->
+<div class="ov" id="m-exp"><div class="modal wide">
+  <button class="cx" onclick="cm('m-exp')">×</button>
+  <div class="mh2">Exportar</div>
+  <div class="egrid">
+    <div class="ecard" onclick="doExport('png')"><div class="ei">🖼️</div><div class="et">PNG</div><div class="ed">Alta calidad</div></div>
+    <div class="ecard" onclick="doExport('jpg')"><div class="ei">📷</div><div class="et">JPG</div><div class="ed">Comprimida</div></div>
+    <div class="ecard" onclick="doExport('svg')"><div class="ei">✏️</div><div class="et">SVG</div><div class="ed">Vectorial</div></div>
+    <div class="ecard" onclick="doExport('json-proc')"><div class="ei">📄</div><div class="et">Este proceso</div><div class="ed">JSON</div></div>
+    <div class="ecard" onclick="doExport('ppt')"><div class="ei">📊</div><div class="et">PowerPoint</div><div class="ed">→ Insertar PNG</div></div>
+    <div class="ecard" onclick="doExport('word')"><div class="ei">📝</div><div class="et">Word/Excel</div><div class="ed">→ Insertar PNG</div></div>
+  </div>
+  <div id="exp-hint" style="display:none;margin-top:10px;padding:10px;background:#eff6ff;border-radius:8px;font-size:11px;color:#1e3a5f;line-height:1.6"></div>
+</div></div>
+
+<!-- CONTEXT MENU -->
+<div class="ctx-menu" id="ctx-menu">
+  <div class="ctx-item" id="ctx-edit" onclick="ctxEdit()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    Editar actividad
+  </div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="ctx-dup" onclick="ctxDuplicate()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    Duplicar
+  </div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" id="ctx-del" onclick="ctxDelete()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+    Eliminar actividad
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════════════════
+// DESIGN CONSTANTS — all node rendering is pure SVG, no HTML divs
+// ═══════════════════════════════════════════════════════════════════════════
+const NW = 160;       // node width
+const NH_HDR = 20;    // header height
+const NH_FOOT = 16;   // footer height
+const LINE_H = 15;    // body line height
+const PAD = 7;        // body padding
+const FONT = 'Segoe UI,Arial,sans-serif';
+const CHARS_PER_LINE = 18;
+const ARROW_GAP = 12; // clearance for routing
+const GAP = 24;       // gap between nodes
+
+const LANE_BUILTIN = {
+  cedis: {label:'CEDIS',       bg:'#d4edda', bd:'#82c996', hd:'#b2dfbb', tx:'#1a5c2a'},
+  plan:  {label:'Planeación',  bg:'#dbeafe', bd:'#7ab8f5', hd:'#bfdbfe', tx:'#1e3a5f'},
+  prea:  {label:'Prealistador',bg:'#fef9c3', bd:'#f5c842', hd:'#fde68a', tx:'#7a5c00'},
+  dec:   {label:'Decisión',    bg:'#fee2e2', bd:'#fca5a5', hd:'#fecaca', tx:'#7f1d1d'},
+};
+// Custom lanes added by user — persisted in JSON
+let customLanes = {};
+// LANE is the merged view — rebuilt when custom lanes change
+const LANE = new Proxy({}, {
+  get(_, key) {
+    return LANE_BUILTIN[key] || customLanes[key] || LANE_BUILTIN.plan;
+  },
+  has(_, key) { return !!(LANE_BUILTIN[key] || customLanes[key]); },
+  ownKeys(_) { return [...Object.keys(LANE_BUILTIN), ...Object.keys(customLanes)]; },
+  getOwnPropertyDescriptor(_, key) {
+    const v = LANE_BUILTIN[key] || customLanes[key];
+    return v ? {value:v, writable:true, enumerable:true, configurable:true} : undefined;
+  }
+});
+const BADGE = {
+  cedis:{bg:'#d4edda',c:'#1a5c2a'}, plan:{bg:'#dbeafe',c:'#1e3a5f'},
+  prea:{bg:'#fef9c3',c:'#7a5c00'},  dec:{bg:'#fee2e2',c:'#7f1d1d'},
+};
+function getBadge(lane) {
+  if (BADGE[lane]) return BADGE[lane];
+  const lc = customLanes[lane];
+  return lc ? {bg:lc.bg, c:lc.tx} : {bg:'#dbeafe',c:'#1e3a5f'};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PURE SVG NODE GEOMETRY
+// Every node stores x,y,w and we compute h purely from the title text.
+// No DOM height queries ever — everything is predictable.
+// ═══════════════════════════════════════════════════════════════════════════
+function wrapText(title, nodeW) {
+  // Compute max chars based on actual node pixel width
+  // 11px Segoe UI ≈ 6.2px per char average; usable = nodeW - PAD*2
+  const usable = (nodeW || NW) - PAD * 2;
+  const charW = 6.0; // conservative estimate
+  const MAX = Math.max(8, Math.floor(usable / charW));
+  const words = title.split(' ');
+  const lines = [];
+  let cur = '';
+  words.forEach(w => {
+    // Long word with no spaces (e.g. "planchas/estandar/plantilla"): split at slash
+    if (w.length > MAX) {
+      const parts = w.replace(/\//g,' / ').replace(/-/g,'- ').split(' ').filter(Boolean);
+      parts.forEach(part => {
+        if ((cur + ' ' + part).trim().length > MAX) {
+          if (cur) lines.push(cur.trim());
+          cur = part;
+        } else {
+          cur = (cur + ' ' + part).trim();
+        }
+      });
+      return;
+    }
+    if ((cur + ' ' + w).trim().length > MAX) {
+      if (cur) lines.push(cur.trim());
+      cur = w;
+    } else {
+      cur = (cur + ' ' + w).trim();
+    }
+  });
+  if (cur) lines.push(cur.trim());
+  return lines;
+}
+
+function nodeHeight(n) {
+  const lines = wrapText(n.title, n.w || NW);
+  return NH_HDR + PAD + lines.length * LINE_H + PAD + NH_FOOT;
+}
+
+function portCenter(n, side) {
+  const h = nodeHeight(n);
+  if (side === 'r') return { x: n.x + n.w,     y: n.y + h / 2 };
+  if (side === 'l') return { x: n.x,             y: n.y + h / 2 };
+  if (side === 'b') return { x: n.x + n.w / 2,  y: n.y + h };
+  if (side === 't') return { x: n.x + n.w / 2,  y: n.y };
+  return { x: n.x + n.w, y: n.y + h / 2 };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SMART ROUTING — pure geometry, no DOM
+// ═══════════════════════════════════════════════════════════════════════════
+function nodeRect(n, pad) {
+  const p = pad || 0;
+  const h = nodeHeight(n);
+  return { x: n.x - p, y: n.y - p, w: n.w + p*2, h: h + p*2 };
+}
+
+function segCrossesRect(x1,y1,x2,y2,r) {
+  if (Math.max(x1,x2) < r.x || Math.min(x1,x2) > r.x+r.w) return false;
+  if (Math.max(y1,y2) < r.y || Math.min(y1,y2) > r.y+r.h) return false;
+  if (x1 < r.x && x2 < r.x) return false;
+  if (x1 > r.x+r.w && x2 > r.x+r.w) return false;
+  if (y1 < r.y && y2 < r.y) return false;
+  if (y1 > r.y+r.h && y2 > r.y+r.h) return false;
+  return true;
+}
+
+function routeClear(waypoints, obstacles) {
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    const a = waypoints[i], b = waypoints[i+1];
+    if (Math.abs(a.x-b.x) < 0.5 && Math.abs(a.y-b.y) < 0.5) continue;
+    for (const r of obstacles) {
+      if (segCrossesRect(a.x,a.y,b.x,b.y,r)) return false;
+    }
+  }
+  return true;
+}
+
+function wpsToD(wps) {
+  // Build orthogonal path with rounded corners (r=6px)
+  if (wps.length < 2) return 'M0,0';
+  const R = 5; // corner radius
+  if (wps.length === 2) return `M${wps[0].x},${wps[0].y}L${wps[1].x},${wps[1].y}`;
+  let d = `M${wps[0].x},${wps[0].y}`;
+  for (let i = 1; i < wps.length - 1; i++) {
+    const prev = wps[i-1], cur = wps[i], next = wps[i+1];
+    // Direction from prev to cur
+    const dx1 = cur.x - prev.x, dy1 = cur.y - prev.y;
+    const len1 = Math.sqrt(dx1*dx1+dy1*dy1);
+    // Direction from cur to next
+    const dx2 = next.x - cur.x, dy2 = next.y - cur.y;
+    const len2 = Math.sqrt(dx2*dx2+dy2*dy2);
+    if (len1 < 1 || len2 < 1) { d += `L${cur.x},${cur.y}`; continue; }
+    const r = Math.min(R, len1/2, len2/2);
+    // Point before corner
+    const bx = cur.x - (dx1/len1)*r, by = cur.y - (dy1/len1)*r;
+    // Point after corner
+    const ax = cur.x + (dx2/len2)*r, ay = cur.y + (dy2/len2)*r;
+    d += `L${Math.round(bx)},${Math.round(by)}Q${cur.x},${cur.y} ${Math.round(ax)},${Math.round(ay)}`;
+  }
+  const last = wps[wps.length-1];
+  d += `L${last.x},${last.y}`;
+  return d;
+}
+
+function bestPorts(fn, tn) {
+  const fh = nodeHeight(fn), th = nodeHeight(tn);
+  const fcx = fn.x + fn.w/2, fcy = fn.y + fh/2;
+  const tcx = tn.x + tn.w/2, tcy = tn.y + th/2;
+  const dx = tcx - fcx, dy = tcy - fcy;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0 ? {fp:'r', tp:'l'} : {fp:'l', tp:'r'};
+  } else {
+    return dy >= 0 ? {fp:'b', tp:'t'} : {fp:'t', tp:'b'};
+  }
+}
+
+// Snap a value to the nearest multiple of GRID
+const GRID = 1; // keep as 1 for pixel precision, increase for snapping
+
+function orthoRoute(nodes, fromId, toId, fp, tp) {
+  const fn = nodes.find(n=>n.id===fromId);
+  const tn = nodes.find(n=>n.id===toId);
+  if (!fn || !tn) return 'M0,0';
+
+  if (!fp || !tp) { const b = bestPorts(fn,tn); fp=b.fp; tp=b.tp; }
+
+  // Obstacles defined early so sameRow/sameCol blocks can use them
+  const GAP = ARROW_GAP;
+  const obs = nodes
+    .filter(n => n.id !== fromId && n.id !== toId)
+    .map(n => nodeRect(n, GAP));
+
+  // ── Port positions ──────────────────────────────────────────────────────
+  const fh = nodeHeight(fn), th = nodeHeight(tn);
+
+  // For horizontal connections (r→l or l→r): use the vertical CENTER of each node.
+  // Key insight: if both nodes are roughly on the same row, snap to the SAME Y
+  // so the line is perfectly horizontal.
+  const fCY = fn.y + fh/2;
+  const tCY = tn.y + th/2;
+  const fCX = fn.x + fn.w/2;
+  const tCX = tn.x + tn.w/2;
+
+  // Are they on the same horizontal band? (centers within 30px)
+  const sameRow = Math.abs(fCY - tCY) < 30;
+  // Are they on the same vertical band?
+  const sameCol = Math.abs(fCX - tCX) < 30;
+
+  // Compute exit/entry points
+  let x1, y1, x2, y2;
+
+  if ((fp==='r'||fp==='l') && (tp==='r'||tp==='l')) {
+    // Horizontal connection
+    if (sameRow) {
+      const sharedY = Math.round((fCY + tCY) / 2);
+      x1 = fp==='r' ? fn.x+fn.w : fn.x;
+      x2 = tp==='l' ? tn.x      : tn.x+tn.w;
+      // Try direct straight line first
+      if (!routeClear([{x:x1,y:sharedY},{x:x2,y:sharedY}], obs)) {
+        // Backward arrow — route JUST above the row (16px clearance)
+        const clearance = 16;
+        const rowTop = Math.round(Math.min(fn.y, tn.y) - clearance);
+        const rowBot = Math.round(Math.max(fn.y + fh, tn.y + th) + clearance);
+        // Try above first, then below
+        const wpsAbove = [{x:x1,y:sharedY},{x:x1,y:rowTop},{x:x2,y:rowTop},{x:x2,y:sharedY}];
+        const wpsBelow = [{x:x1,y:sharedY},{x:x1,y:rowBot},{x:x2,y:rowBot},{x:x2,y:sharedY}];
+        if (routeClear(wpsAbove, obs)) return 'M'+wpsAbove.map(p=>p.x+','+p.y).join('L');
+        return 'M'+wpsBelow.map(p=>p.x+','+p.y).join('L');
+      }
+      return `M${x1},${sharedY}L${x2},${sharedY}`;
+    }
+    x1 = fp==='r' ? fn.x+fn.w : fn.x;  y1 = Math.round(fCY);
+    x2 = tp==='l' ? tn.x      : tn.x+tn.w; y2 = Math.round(tCY);
+  } else if ((fp==='b'||fp==='t') && (tp==='b'||tp==='t')) {
+    // Vertical connection
+    if (sameCol) {
+      const sharedX = Math.round((fCX + tCX) / 2);
+      y1 = fp==='b' ? fn.y+fh : fn.y;
+      y2 = tp==='t' ? tn.y    : tn.y+th;
+      if (!routeClear([{x:sharedX,y:y1},{x:sharedX,y:y2}], obs)) {
+        const clearance = 16;
+        const colLeft  = Math.round(Math.min(fn.x, tn.x) - clearance);
+        const colRight = Math.round(Math.max(fn.x+fn.w, tn.x+tn.w) + clearance);
+        const wpsLeft  = [{x:sharedX,y:y1},{x:colLeft,y:y1},{x:colLeft,y:y2},{x:sharedX,y:y2}];
+        const wpsRight = [{x:sharedX,y:y1},{x:colRight,y:y1},{x:colRight,y:y2},{x:sharedX,y:y2}];
+        if (routeClear(wpsLeft, obs)) return 'M'+wpsLeft.map(p=>p.x+','+p.y).join('L');
+        return 'M'+wpsRight.map(p=>p.x+','+p.y).join('L');
+      }
+      return `M${sharedX},${y1}L${sharedX},${y2}`;
+    }
+    x1 = Math.round(fCX); y1 = fp==='b' ? fn.y+fh : fn.y;
+    x2 = Math.round(tCX); y2 = tp==='t' ? tn.y    : tn.y+th;
+  } else if ((fp==='r'||fp==='l') && (tp==='b'||tp==='t')) {
+    x1 = fp==='r' ? fn.x+fn.w : fn.x;  y1 = Math.round(fCY);
+    x2 = Math.round(tCX);               y2 = tp==='t' ? tn.y : tn.y+th;
+  } else {
+    x1 = Math.round(fCX); y1 = fp==='b' ? fn.y+fh : fn.y;
+    x2 = tp==='l' ? tn.x : tn.x+tn.w;  y2 = Math.round(tCY);
+  }
+
+  // Round all to integers
+  x1=Math.round(x1); y1=Math.round(y1);
+  x2=Math.round(x2); y2=Math.round(y2);
+
+  // Already straight?
+  if (x1===x2) return `M${x1},${y1}L${x2},${y2}`;
+  if (y1===y2) return `M${x1},${y1}L${x2},${y2}`;
+
+  // ── Build orthogonal path ───────────────────────────────────────────────
+  function ok(wps) {
+    const pts = wps.map(p=>({x:Math.round(p.x),y:Math.round(p.y)}));
+    const cl = [pts[0]];
+    for(let i=1;i<pts.length;i++){
+      if(pts[i].x!==cl[cl.length-1].x||pts[i].y!==cl[cl.length-1].y) cl.push(pts[i]);
+    }
+    if(!routeClear(cl,obs)) return null;
+    return 'M'+cl.map(p=>p.x+','+p.y).join('L');
+  }
+
+  // Clearance levels — use only nodes near the path's bounding box (with margin),
+  // not the entire tab. This prevents far-away nodes from pushing detours
+  // thousands of pixels off-screen.
+  const padBox = 400; // search margin around the direct path
+  const boxMinX = Math.min(x1,x2) - padBox, boxMaxX = Math.max(x1,x2) + padBox;
+  const boxMinY = Math.min(y1,y2) - padBox, boxMaxY = Math.max(y1,y2) + padBox;
+  const nearbyNodes = nodes.filter(n => {
+    const nh = nodeHeight(n);
+    return n.x < boxMaxX && n.x+n.w > boxMinX && n.y < boxMaxY && n.y+nh > boxMinY;
+  });
+  const refNodes = nearbyNodes.length ? nearbyNodes : [fn, tn];
+  const topY  = Math.round(Math.min(...refNodes.map(n=>n.y)) - GAP*2);
+  const botY  = Math.round(Math.max(...refNodes.map(n=>n.y+nodeHeight(n))) + GAP*2);
+  const leftX = Math.round(Math.min(...refNodes.map(n=>n.x)) - GAP*2);
+  const rightX= Math.round(Math.max(...refNodes.map(n=>n.x+n.w)) + GAP*2);
+
+  if ((fp==='r'||fp==='l') && (tp==='r'||tp==='l')) {
+    const mx = Math.round((x1+x2)/2);
+    const result = ok([{x:x1,y:y1},{x:mx,y:y1},{x:mx,y:y2},{x:x2,y:y2}])
+        || ok([{x:x1,y:y1},{x:x1,y:botY},{x:x2,y:botY},{x:x2,y:y2}])
+        || ok([{x:x1,y:y1},{x:x1,y:topY},{x:x2,y:topY},{x:x2,y:y2}])
+        || ok([{x:x1,y:y1},{x:rightX,y:y1},{x:rightX,y:y2},{x:x2,y:y2}]);
+    if (result) return result;
+    // Safety fallback: simple S-curve, guaranteed visible near the two nodes
+    return `M${x1},${y1}L${mx},${y1}L${mx},${y2}L${x2},${y2}`;
+  }
+
+  if ((fp==='b'||fp==='t') && (tp==='b'||tp==='t')) {
+    const my = Math.round((y1+y2)/2);
+    return ok([{x:x1,y:y1},{x:x1,y:my},{x:x2,y:my},{x:x2,y:y2}])
+        || ok([{x:x1,y:y1},{x:leftX,y:y1},{x:leftX,y:y2},{x:x2,y:y2}])
+        || ok([{x:x1,y:y1},{x:rightX,y:y1},{x:rightX,y:y2},{x:x2,y:y2}])
+        || `M${x1},${y1}L${x1},${my}L${x2},${my}L${x2},${y2}`;
+  }
+
+  if ((fp==='r'||fp==='l') && (tp==='b'||tp==='t')) {
+    return ok([{x:x1,y:y1},{x:x2,y:y1},{x:x2,y:y2}])
+        || ok([{x:x1,y:y1},{x:x1,y:y2},{x:x2,y:y2}])
+        || ok([{x:x1,y:y1},{x:Math.round((x1+x2)/2),y:y1},{x:Math.round((x1+x2)/2),y:y2},{x:x2,y:y2}])
+        || `M${x1},${y1}L${x2},${y1}L${x2},${y2}`;
+  }
+
+  // fp b/t → tp r/l
+  return ok([{x:x1,y:y1},{x:x1,y:y2},{x:x2,y:y2}])
+      || ok([{x:x1,y:y1},{x:x2,y:y1},{x:x2,y:y2}])
+      || ok([{x:x1,y:y1},{x:x1,y:Math.round((y1+y2)/2)},{x:x2,y:Math.round((y1+y2)/2)},{x:x2,y:y2}])
+      || `M${x1},${y1}L${x1},${y2}L${x2},${y2}`;
+}
+
+
+// Alias smartRoute to orthoRoute
+function smartRoute(nodes, fromId, toId, fp, tp) {
+  return orthoRoute(nodes, fromId, toId, fp, tp);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GLOBAL STATE
+// ═══════════════════════════════════════════════════════════════════════════
+let procs = [];          // array of process objects
+let curPid = null;
+let procCtr = 1;
+let nodeCtr = 1;
+let mode = 's';
+let tabColor = '#3b82f6';
+let mergeSet = new Set();
+
+// Per-process state (stored in proc object):
+// nodes, arrows, nid, aid, sc, tx, ty, selNode, selArrow, hist, editId
+// drag, dragOff, pan, panSt, connSrc, tempLineEl
+
+const svg = document.getElementById('mainsvg');
+const root = document.getElementById('root');
+const cw = document.getElementById('cw');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SVG HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag,attrs,parent) {
+  const e = document.createElementNS(NS,tag);
+  if(attrs) Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));
+  if(parent) parent.appendChild(e);
+  return e;
+}
+function txt(text,attrs,parent) {
+  const e = el('text',attrs,parent);
+  e.textContent = text;
+  return e;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROCESS MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════
+function getP() { return procs.find(p=>p.id===curPid); }
+
+function createProc(name, color, nodes, arrows, isMerge) {
+  const pid = procCtr++;
+  const proc = {
+    id: pid, name: name||('Proceso '+pid), color: color||'#3b82f6',
+    nodes: nodes ? nodes.map(n=>({...n})) : [],
+    arrows: arrows ? arrows.map(a=>({...a})) : [],
+    nid: 1, aid: 1,
+    sc: 1, tx: 40, ty: 40,
+    selNodes: new Set(), selArrow: null,
+    hist: [], editId: null,
+    drag: null, dragOff: {x:0,y:0},
+    pan: false, panSt: {x:0,y:0},
+    connSrc: null, tempLineEl: null, resizing: null, _pendingDrag: null,
+    areas: [], labels: [], areaId: 1, labelId: 1,
+    selArea: null, selLabel: null, areaResizing: null,
+    isMerge: !!isMerge,
+    g: null, // main SVG group for this process
+  };
+  if (nodes) proc.nid = Math.max(1, ...nodes.map(n=>n.id+1));
+  if (arrows) proc.aid = Math.max(1, ...arrows.map(a=>a.id+1));
+
+  // Create a group for this process (hidden initially)
+  const g = el('g',{id:'proc-'+pid, display:'none'}, root);
+  proc.g = g;
+  // Background rect catches all empty-area mouse events for panning
+  el('rect',{id:'bg-'+pid, x:-50000, y:-50000, width:100000, height:100000,
+    fill:'white', stroke:'none', opacity:1}, g);
+  el('g',{id:'arrows-'+pid}, g); // arrows layer
+  el('g',{id:'nodes-'+pid}, g);  // nodes layer
+
+  procs.push(proc);
+  (proc.areas||[]).forEach(a=>drawArea(proc,a));
+  proc.nodes.forEach(n=>drawNode(proc,n));
+  proc.arrows.forEach(a=>drawArrow(proc,a));
+  (proc.labels||[]).forEach(l=>drawLabel(proc,l));
+  renderTabs();
+  switchTo(pid);
+  return proc;
+}
+
+function deleteProc(pid) {
+  if (procs.length <= 1) { showH('Debe haber al menos un proceso'); return; }
+  const p = procs.find(x=>x.id===pid);
+  if (!p || !confirm(`¿Eliminar "${p.name}"?`)) return;
+  p.g.remove();
+  procs = procs.filter(x=>x.id!==pid);
+  if (curPid===pid) switchTo(procs[0].id);
+  else renderTabs();
+}
+
+function switchTo(pid) {
+  procs.forEach(p => p.g.setAttribute('display','none'));
+  curPid = pid;
+  const p = getP();
+  if (!p) return;
+  p.g.setAttribute('display','block');
+  applyTransform(p);
+  renderTabs();
+  updSt();
+}
+
+function applyTransform(p) {
+  p.g.setAttribute('transform', `translate(${p.tx},${p.ty}) scale(${p.sc})`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════════════════
+function renderTabs() {
+  const bar = document.getElementById('tabs');
+  bar.querySelectorAll('.tab').forEach(e=>e.remove());
+  const addBtn = document.getElementById('tab-add');
+  procs.forEach(p => {
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (p.id===curPid?' active':'') + (p.isMerge?' merged':'');
+    tab.innerHTML = `<span class="tab-dot" style="background:${p.color}"></span>
+      <span class="tab-name" id="tn-${p.id}">${p.name}</span>
+      <button class="tab-x" onclick="event.stopPropagation();deleteProc(${p.id})">×</button>`;
+    tab.addEventListener('click', ()=>switchTo(p.id));
+    document.getElementById('tn-'+p.id)?.addEventListener('dblclick', e=>{
+      e.stopPropagation(); editTabName(p.id);
+    });
+    bar.insertBefore(tab, addBtn);
+  });
+}
+
+function editTabName(pid) {
+  const p = procs.find(x=>x.id===pid);
+  const span = document.getElementById('tn-'+pid);
+  if(!p||!span)return;
+  const inp = document.createElement('input');
+  inp.value=p.name;inp.style.cssText='all:unset;font-size:12px;font-weight:600;width:90px;';
+  span.innerHTML='';span.appendChild(inp);inp.focus();inp.select();
+  inp.onblur=()=>{p.name=inp.value.trim()||p.name;renderTabs();};
+  inp.onkeydown=e=>{if(e.key==='Enter')inp.blur();e.stopPropagation();};
+  inp.addEventListener('click',e=>e.stopPropagation());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRAW NODE (pure SVG)
+// ═══════════════════════════════════════════════════════════════════════════
+function drawNode(proc, n) {
+  const gid = 'n-'+proc.id+'-'+n.id;
+  // Only create if not already in DOM
+  let ng = document.getElementById(gid);
+  if (ng) { updateNodeVisual(proc, n); return; }
+
+  const lc = LANE[n.lane] || LANE.plan;
+  const lines = wrapText(n.title, n.w);
+  const bodyH = PAD + lines.length * LINE_H + PAD;
+  const totalH = NH_HDR + bodyH + NH_FOOT;
+  n._h = totalH;
+
+  ng = el('g', {id:gid, cursor:'pointer'}, document.getElementById('nodes-'+proc.id));
+
+  // Invisible full-box hit area (ensures events work everywhere on the box)
+  const hitRect = el('rect',{x:n.x,y:n.y,width:n.w,height:totalH,rx:8,
+    fill:'transparent',stroke:'none'}, ng);
+  // Tooltip (native SVG title)
+  const titleEl = document.createElementNS('http://www.w3.org/2000/svg','title');
+  titleEl.textContent = n.title + (n.desc ? '\n\n' + n.desc : '');
+  ng.appendChild(titleEl);
+
+  // Selection ring (initially hidden, updated by updateNodeVisual)
+  el('rect',{id:gid+'-sel',x:n.x-3,y:n.y-3,width:n.w+6,height:totalH+6,rx:11,
+    fill:'none',stroke:'none','stroke-width':2.5}, ng);
+
+  // Background
+  el('rect',{id:gid+'-bg',x:n.x,y:n.y,width:n.w,height:totalH,rx:8,
+    fill:lc.bg,stroke:lc.bd,'stroke-width':1.5}, ng);
+
+  // Header bg
+  el('rect',{x:n.x,y:n.y,width:n.w,height:NH_HDR,rx:8,fill:lc.hd}, ng);
+  el('rect',{x:n.x,y:n.y+NH_HDR-6,width:n.w,height:6,fill:lc.hd}, ng);
+
+  // Header text with clip
+  const hClipId = gid+'-hc';
+  const hClip = el('clipPath',{id:hClipId}, ng);
+  el('rect',{x:n.x,y:n.y,width:n.w-4,height:NH_HDR}, hClip);
+  txt(lc.label+(n.sys?' · '+n.sys:''), {
+    x:n.x+7, y:n.y+NH_HDR/2+1,
+    'text-anchor':'start','dominant-baseline':'central',
+    'font-family':FONT,'font-size':9,'font-weight':700,fill:lc.tx,
+    'clip-path':'url(#'+hClipId+')'
+  }, ng);
+
+  // Body text — no clip needed, box height auto-fits all lines
+  lines.forEach((line,i) => {
+    txt(line, {
+      x:n.x+PAD, y:n.y+NH_HDR+PAD+i*LINE_H+LINE_H/2,
+      'dominant-baseline':'central','text-anchor':'start',
+      'font-family':FONT,'font-size':11,'font-weight':500,fill:'#1a1a2e'
+    }, ng);
+  });
+
+  // Footer
+  el('line',{x1:n.x,y1:n.y+NH_HDR+bodyH,x2:n.x+n.w,y2:n.y+NH_HDR+bodyH,
+    stroke:'rgba(0,0,0,.08)','stroke-width':1}, ng);
+  const fClipId = gid+'-fc';
+  const fClip = el('clipPath',{id:fClipId}, ng);
+  el('rect',{x:n.x,y:n.y+NH_HDR+bodyH,width:n.w-4,height:NH_FOOT}, fClip);
+  txt(n.resp||lc.label, {
+    x:n.x+7, y:n.y+NH_HDR+bodyH+NH_FOOT/2,
+    'dominant-baseline':'central','text-anchor':'start',
+    'font-family':FONT,'font-size':9,fill:'#5a6a7a',
+    'clip-path':'url(#'+fClipId+')'
+  }, ng);
+
+  // Port circles (connect mode)
+  [{s:'r',cx:n.x+n.w,cy:n.y+totalH/2},{s:'l',cx:n.x,cy:n.y+totalH/2},
+   {s:'b',cx:n.x+n.w/2,cy:n.y+totalH},{s:'t',cx:n.x+n.w/2,cy:n.y}].forEach(p=>{
+    const c = el('circle',{cx:p.cx,cy:p.cy,r:8,fill:'transparent',cursor:'crosshair',opacity:0}, ng);
+    c.addEventListener('mousedown',e=>{e.stopPropagation();startConn(proc,n.id,p.s,e);});
+    c.addEventListener('mouseenter',()=>{c.setAttribute('fill','#1a73e844');c.setAttribute('opacity',1);});
+    c.addEventListener('mouseleave',()=>{c.setAttribute('fill','transparent');c.setAttribute('opacity',0);});
+    ng.addEventListener('mouseenter',()=>c.setAttribute('opacity',1));
+    ng.addEventListener('mouseleave',()=>c.setAttribute('opacity',0));
+  });
+
+  // ── Resize handle (bottom-right corner) ──
+  const rsz = el('rect', {
+    id: gid+'-rsz',
+    x: n.x + n.w - 10, y: n.y + totalH - 10,
+    width: 10, height: 10, rx: 2,
+    fill: '#94a3b8', opacity: 0, cursor: 'se-resize'
+  }, ng);
+  const rszIcon = el('path', {
+    id: gid+'-rszp',
+    d: `M${n.x+n.w-8},${n.y+totalH-3} L${n.x+n.w-3},${n.y+totalH-3} L${n.x+n.w-3},${n.y+totalH-8}`,
+    stroke: '#475569', 'stroke-width': 1.5, fill: 'none',
+    cursor: 'se-resize', opacity: 0, 'pointer-events': 'none'
+  }, ng);
+  ng.addEventListener('mouseenter', () => {
+    rsz.setAttribute('opacity', 0.7);
+    rszIcon.setAttribute('opacity', 1);
+  });
+  ng.addEventListener('mouseleave', () => {
+    rsz.setAttribute('opacity', 0);
+    rszIcon.setAttribute('opacity', 0);
+  });
+  rsz.addEventListener('mousedown', e => {
+    onResizeMousedown(proc, n.id, e);
+  });
+
+  // ── Event listeners on the GROUP (not recreated) ──
+  ng.addEventListener('mousedown', e=>{
+    if (e.target.getAttribute('cursor')==='crosshair') return;
+    if (e.target.getAttribute('cursor')==='se-resize') { onResizeMousedown(proc,n.id,e); return; }
+    onNodeMousedown(proc, n.id, e);
+  });
+
+  ng.addEventListener('dblclick', e=>{
+    e.stopPropagation();
+    e.preventDefault();
+    openNodeModal(proc, n.id);
+  });
+
+  ng.addEventListener('contextmenu', e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    // Right-click always works regardless of mode
+    if (mode !== 'c') {
+      if (mode === 'p') setMode('s'); // auto-switch to select mode
+      selectNode(proc, n.id);
+      showCtxMenu(proc, n.id, e.clientX, e.clientY);
+    }
+  });
+
+  updateNodeVisual(proc, n);
+}
+
+function updateNodeVisual(proc, n) {
+  const gid = 'n-'+proc.id+'-'+n.id;
+  const lc = LANE[n.lane]||LANE.plan;
+  const lines = wrapText(n.title, n.w);
+  const bodyH = PAD + lines.length * LINE_H + PAD;
+  const totalH = NH_HDR + bodyH + NH_FOOT;
+  n._h = totalH;
+
+  // Update position and size
+  const bg = document.getElementById(gid+'-bg');
+  if (bg) {
+    bg.setAttribute('x',n.x); bg.setAttribute('y',n.y);
+    bg.setAttribute('width',n.w); bg.setAttribute('height',totalH);
+    bg.setAttribute('fill',lc.bg); bg.setAttribute('stroke',lc.bd);
+  }
+
+  // Update selection ring
+  const sel = document.getElementById(gid+'-sel');
+  if (sel) {
+    const isSel = proc.selNodes && proc.selNodes.has(n.id);
+    sel.setAttribute('x',n.x-3); sel.setAttribute('y',n.y-3);
+    sel.setAttribute('width',n.w+6); sel.setAttribute('height',totalH+6);
+    sel.setAttribute('stroke', isSel ? '#1a73e8' : 'none');
+    sel.setAttribute('opacity', isSel ? '0.9' : '0');
+  }
+}
+
+function moveNodeEl(proc, n) {
+  // Move all SVG elements of a node to new x,y without full redraw
+  const gid = 'n-'+proc.id+'-'+n.id;
+  const ng = document.getElementById(gid);
+  if (!ng) { drawNode(proc,n); return; }
+  // Re-render at new position
+  ng.remove();
+  const lines = wrapText(n.title, n.w);
+  const bodyH = PAD + lines.length * LINE_H + PAD;
+  n._h = NH_HDR + bodyH + NH_FOOT;
+  // Recreate (position changed)
+  const existed = true;
+  // We need to full-redraw when position changes since SVG coords are absolute
+  const wasInDOM = true;
+  // Force full recreate by temporarily clearing id
+  ng.id = gid+'_old';
+  setTimeout(()=>ng.remove(),0);
+  drawNode(proc, n);
+}
+
+
+function redrawNode(proc, n) { drawNode(proc, n); }
+function redrawAllNodes(proc) { proc.nodes.forEach(n=>drawNode(proc,n)); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRAW ARROW
+// ═══════════════════════════════════════════════════════════════════════════
+function drawArrow(proc, ar) {
+  const aid = 'a-'+proc.id+'-'+ar.id;
+  document.getElementById(aid)?.remove();
+  const al = document.getElementById('arrows-'+proc.id);
+  if (!al) return;
+
+  const d = smartRoute(proc.nodes, ar.from, ar.to, ar.fp||'r', ar.tp||'l');
+  const isSel = proc.selArrow === ar.id;
+  const col = isSel ? '#1a73e8' : '#9ca3af';
+
+  const path = el('path',{
+    id:aid,d,fill:'none',stroke:col,'stroke-width': isSel?2.5:1.5,
+    'marker-end':'url(#arrowhead)',cursor:'pointer','pointer-events':'stroke'
+  },al);
+  path.addEventListener('click',e=>{
+    e.stopPropagation();
+    selectArrow(proc,ar.id);
+    showH('Flecha seleccionada — presiona Supr para eliminar');
+  });
+}
+
+function redrawAllArrows(proc) {
+  const al = document.getElementById('arrows-'+proc.id);
+  if(al) al.innerHTML='';
+  proc.arrows.forEach(a=>drawArrow(proc,a));
+}
+
+function redrawArrowsOf(proc, nid) {
+  proc.arrows.filter(a=>a.from===nid||a.to===nid).forEach(a=>drawArrow(proc,a));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SELECTION
+// ═══════════════════════════════════════════════════════════════════════════
+function selectNode(proc, id, additive) {
+  // Visual-only update, no DOM recreation
+  proc.selArrow = null;
+  if (additive) {
+    if (proc.selNodes.has(id)) proc.selNodes.delete(id);
+    else proc.selNodes.add(id);
+  } else {
+    if (!(proc.selNodes.size===1 && proc.selNodes.has(id))) {
+      proc.selNodes.clear();
+      proc.selNodes.add(id);
+    }
+  }
+  // Update selection rings without recreating elements
+  proc.nodes.forEach(n => {
+    const sel = document.getElementById('n-'+proc.id+'-'+n.id+'-sel');
+    if (sel) sel.setAttribute('stroke', proc.selNodes.has(n.id) ? '#1a73e8' : 'none');
+    if (sel) sel.setAttribute('opacity', proc.selNodes.has(n.id) ? '0.9' : '0');
+  });
+  redrawAllA(proc);
+  updSt();
+}
+function selectArrow(proc, id) {
+  proc.selNodes.clear(); proc.selArrow = id;
+  // Clear all selection rings
+  proc.nodes.forEach(n => {
+    const sel = document.getElementById('n-'+proc.id+'-'+n.id+'-sel');
+    if (sel) { sel.setAttribute('stroke','none'); sel.setAttribute('opacity','0'); }
+  });
+  redrawAllA(proc);
+  updSt();
+}
+function deselectAll(proc) {
+  proc.selNodes.clear(); proc.selArrow = null;
+  proc.nodes.forEach(n => {
+    const sel = document.getElementById('n-'+proc.id+'-'+n.id+'-sel');
+    if (sel) { sel.setAttribute('stroke','none'); sel.setAttribute('opacity','0'); }
+  });
+  // Deselect areas
+  if (proc.selArea) {
+    const asel = document.getElementById('area-'+proc.id+'-'+proc.selArea+'-sel');
+    if (asel) asel.setAttribute('stroke','none');
+    proc.selArea = null;
+  }
+  // Deselect labels
+  if (proc.selLabel) {
+    const lsel = document.getElementById('lbl-'+proc.id+'-'+proc.selLabel+'-sel');
+    if (lsel) lsel.setAttribute('stroke','none');
+    proc.selLabel = null;
+  }
+  redrawAllA(proc);
+  updSt();
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// CONNECT MODE
+// ═══════════════════════════════════════════════════════════════════════════
+function startConn(proc, nid, side, e) {
+  e.stopPropagation();
+  if (!proc.connSrc) {
+    // If no side given (body click), we'll determine it when target is clicked
+    proc.connSrc = {id:nid, side: side || 'auto'};
+    redrawNode(proc, proc.nodes.find(n=>n.id===nid));
+    showH('Haz clic en la actividad destino · Esc = cancelar');
+    const drawSide = (side==='auto'||!side) ? 'r' : side;
+    const p = portCenter(proc.nodes.find(n=>n.id===nid), drawSide);
+    const tl = proc.tempLineEl = el('line',{
+      x1:p.x,y1:p.y,x2:p.x,y2:p.y,
+      stroke:'#16a34a','stroke-width':1.5,'stroke-dasharray':'5 3'
+    }, document.getElementById('arrows-'+proc.id));
+  } else {
+    if (proc.connSrc.id === nid) { cancelConn(proc); return; }
+    const already = proc.arrows.find(a=>
+      (a.from===proc.connSrc.id&&a.to===nid) || (a.from===nid&&a.to===proc.connSrc.id));
+    if (already) {
+      showH('⚠️ Ya existe una conexión entre estas dos actividades');
+      cancelConn(proc);
+      return;
+    }
+    if (true) {
+      const fn = proc.nodes.find(n=>n.id===proc.connSrc.id);
+      const tn = proc.nodes.find(n=>n.id===nid);
+      const fp = proc.connSrc.side;
+      // Always use geometry to pick the best port pair
+      const best = bestPorts(fn, tn);
+      const srcSide = proc.connSrc.side;
+      let useFp, useTp;
+      if (srcSide === 'auto' || !srcSide) {
+        // Body click — full geometry-based selection
+        useFp = best.fp; useTp = best.tp;
+      } else {
+        // Port drag — respect the user's chosen source port, auto-pick destination
+        useFp = srcSide;
+        if (srcSide==='r') useTp='l'; else if (srcSide==='l') useTp='r';
+        else if (srcSide==='b') useTp='t'; else useTp='b';
+      }
+      pushH(proc);
+      proc.arrows.push({id:proc.aid++, from:proc.connSrc.id, to:nid, fp:useFp, tp:useTp});
+      drawArrow(proc, proc.arrows[proc.arrows.length-1]);
+    }
+    cancelConn(proc);
+    updSt();
+  }
+}
+
+function cancelConn(proc) {
+  if (proc.connSrc) {
+    const n = proc.nodes.find(x=>x.id===proc.connSrc.id);
+    if (n) redrawNode(proc,n);
+  }
+  proc.connSrc = null;
+  if (proc.tempLineEl) { proc.tempLineEl.remove(); proc.tempLineEl = null; }
+  showH('');
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RUBBER BAND SELECTION
+// ═══════════════════════════════════════════════════════════════════════════
+function drawRubberBand(proc) {
+  let rb = document.getElementById('rubber-band-'+proc.id);
+  if (!rb) {
+    rb = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rb.id = 'rubber-band-'+proc.id;
+    rb.setAttribute('fill','#1a73e822');
+    rb.setAttribute('stroke','#1a73e8');
+    rb.setAttribute('stroke-width', 1/proc.sc);  // 1px regardless of zoom
+    rb.setAttribute('stroke-dasharray', 4/proc.sc+' '+3/proc.sc);
+    rb.setAttribute('pointer-events','none');
+    // Add to current proc group (coordinates are in proc space)
+    document.getElementById('nodes-'+proc.id).appendChild(rb);
+  }
+  const rbb = proc.rubberBand;
+  const x = Math.min(rbb.x1,rbb.x2), y = Math.min(rbb.y1,rbb.y2);
+  const w = Math.abs(rbb.x2-rbb.x1), h = Math.abs(rbb.y2-rbb.y1);
+  rb.setAttribute('x',x); rb.setAttribute('y',y);
+  rb.setAttribute('width',w); rb.setAttribute('height',h);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CANVAS EVENTS
+// ═══════════════════════════════════════════════════════════════════════════
+// Pan: listen on the cw container so it ALWAYS fires regardless of SVG target
+// ═══════════════════════════════════════════════════════════════════════════
+// INTERACTION — 3 explicit modes: s=select, p=pan, c=connect
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _isPanning   = false;
+let _isDragging  = false;
+let _isResizing  = false;
+let _isRubber    = false;
+let _panSt       = {x:0, y:0};
+
+// Called from node group mousedown (in drawNode)
+function onNodeMousedown(proc, nid, e) {
+  if (mode === 'c') { startConn(proc, nid, null, e); return; }
+  if (mode === 'p') {
+    showH('Cambia a modo Seleccionar (V) para editar o eliminar actividades');
+    return;
+  }
+
+  // mode === 's': select + maybe drag
+  const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+  if (!additive && !proc.selNodes.has(nid)) {
+    proc.selNodes.forEach(sid => {
+      const s = document.getElementById('n-'+proc.id+'-'+sid+'-sel');
+      if (s) { s.setAttribute('stroke','none'); s.setAttribute('opacity','0'); }
+    });
+    proc.selNodes.clear();
+  }
+  if (additive && proc.selNodes.has(nid)) proc.selNodes.delete(nid);
+  else proc.selNodes.add(nid);
+  proc.selNodes.forEach(sid => {
+    const s = document.getElementById('n-'+proc.id+'-'+sid+'-sel');
+    if (s) { s.setAttribute('stroke','#1a73e8'); s.setAttribute('opacity','0.9'); }
+  });
+  if (!proc.selNodes.has(nid)) {
+    const s = document.getElementById('n-'+proc.id+'-'+nid+'-sel');
+    if (s) { s.setAttribute('stroke','none'); s.setAttribute('opacity','0'); }
+  }
+  proc.selArrow = null; updSt();
+
+  // Prepare drag
+  const cwRect = cw.getBoundingClientRect();
+  const mx0 = (e.clientX - cwRect.left - proc.tx) / proc.sc;
+  const my0 = (e.clientY - cwRect.top  - proc.ty) / proc.sc;
+  const offsets = {};
+  proc.selNodes.forEach(sid => {
+    const sn = proc.nodes.find(x=>x.id===sid);
+    if (sn) offsets[sid] = { dx: sn.x - mx0, dy: sn.y - my0 };
+  });
+  proc._pendingDrag = { offsets, startClientX: e.clientX, startClientY: e.clientY };
+}
+
+function onResizeMousedown(proc, nid, e) {
+  e.stopPropagation();
+  const n = proc.nodes.find(x=>x.id===nid);
+  if (!n) return;
+  pushH(proc);
+  proc.resizing = { id: nid, startX: e.clientX, startW: n.w };
+  _isResizing = true;
+  svg.className.baseVal = 'main resizing';
+}
+
+// ── SVG mousedown: handles pan mode AND select-mode canvas clicks ──
+svg.addEventListener('mousedown', e => {
+  const proc = getP(); if (!proc) return;
+  if (e.button !== 0) return;
+
+  if (mode === 'p') {
+    // PAN MODE: always pan, regardless of what was clicked
+    _panSt = { x: e.clientX - proc.tx, y: e.clientY - proc.ty };
+    _isPanning = true;
+    svg.className.baseVal = 'main panning';
+    return;
+  }
+
+  if (mode === 'c') return; // connect handled by node
+
+  // SELECT MODE: canvas background click = rubber band or deselect
+  const tid = e.target.id || '';
+  const onBg = tid.startsWith('bg-') || e.target === svg || e.target === root;
+  if (!onBg) return; // node clicks handled by onNodeMousedown
+
+  if (e.shiftKey || e.ctrlKey || e.metaKey) {
+    const cwRect = cw.getBoundingClientRect();
+    const mx = (e.clientX - cwRect.left - proc.tx) / proc.sc;
+    const my = (e.clientY - cwRect.top  - proc.ty) / proc.sc;
+    proc.rubberBand = { x1:mx, y1:my, x2:mx, y2:my };
+    _isRubber = true;
+  } else {
+    deselectAll(proc);
+  }
+});
+
+// ── Global mousemove ──
+window.addEventListener('mousemove', e => {
+  const proc = getP(); if (!proc) return;
+
+  if (_isPanning) {
+    proc.tx = e.clientX - _panSt.x;
+    proc.ty = e.clientY - _panSt.y;
+    applyTransform(proc);
+    return;
+  }
+
+  // Commit pending drag after 5px threshold
+  if (proc._pendingDrag && !_isDragging) {
+    const d = proc._pendingDrag;
+    if (Math.abs(e.clientX - d.startClientX) > 5 || Math.abs(e.clientY - d.startClientY) > 5) {
+      pushH(proc);
+      proc.dragOffsets = d.offsets;
+      proc._pendingDrag = null;
+      _isDragging = true;
+      svg.className.baseVal = 'main dragging';
+    }
+  }
+
+  if (_isDragging && proc.dragOffsets) {
+    const cwRect = cw.getBoundingClientRect();
+    const mx = (e.clientX - cwRect.left - proc.tx) / proc.sc;
+    const my = (e.clientY - cwRect.top  - proc.ty) / proc.sc;
+    proc.selNodes.forEach(sid => {
+      const sn = proc.nodes.find(x=>x.id===sid);
+      const off = proc.dragOffsets[sid];
+      if (!sn || !off) return;
+      const newX = Math.round(mx + off.dx), newY = Math.round(my + off.dy);
+      const dx = newX - sn.x, dy = newY - sn.y;
+      const ng = document.getElementById('n-'+proc.id+'-'+sid);
+      if (ng) ng.setAttribute('transform','translate('+dx+','+dy+')');
+      proc.arrows.filter(a=>a.from===sid||a.to===sid).forEach(ar=>{
+        const ox=sn.x, oy=sn.y; sn.x=newX; sn.y=newY;
+        const d=smartRoute(proc.nodes,ar.from,ar.to,ar.fp||'r',ar.tp||'l');
+        sn.x=ox; sn.y=oy;
+        const pe=document.getElementById('a-'+proc.id+'-'+ar.id);
+        if(pe) pe.setAttribute('d',d);
+      });
+    });
+    proc._pendingCommit = true;
+
+  } else if (_isResizing && proc.resizing) {
+    const dn = proc.nodes.find(x=>x.id===proc.resizing.id);
+    if (dn) {
+      const dxPx = (e.clientX - proc.resizing.startX) / proc.sc;
+      const newW = Math.max(120, Math.round(proc.resizing.startW + dxPx));
+      if (newW !== dn.w) {
+        dn.w = newW; proc.resizing.startX = e.clientX; proc.resizing.startW = newW;
+        document.getElementById('n-'+proc.id+'-'+dn.id)?.remove();
+        drawNode(proc, dn); redrawArrowsOf(proc, dn.id);
+      }
+    }
+
+  } else if (_isRubber && proc.rubberBand) {
+    const cwRect = cw.getBoundingClientRect();
+    const mx = (e.clientX - cwRect.left - proc.tx) / proc.sc;
+    const my = (e.clientY - cwRect.top  - proc.ty) / proc.sc;
+    proc.rubberBand.x2 = mx; proc.rubberBand.y2 = my;
+    drawRubberBand(proc);
+    const rx=Math.min(proc.rubberBand.x1,mx), ry=Math.min(proc.rubberBand.y1,my);
+    const rw=Math.abs(mx-proc.rubberBand.x1), rh=Math.abs(my-proc.rubberBand.y1);
+    proc.selNodes.clear();
+    proc.nodes.forEach(n=>{
+      const nh=nodeHeight(n);
+      if(n.x<rx+rw&&n.x+n.w>rx&&n.y<ry+rh&&n.y+nh>ry) proc.selNodes.add(n.id);
+      const sel=document.getElementById('n-'+proc.id+'-'+n.id+'-sel');
+      if(sel){ const s=proc.selNodes.has(n.id);
+        sel.setAttribute('stroke',s?'#1a73e8':'none');
+        sel.setAttribute('opacity',s?'0.9':'0'); }
+    });
+  }
+
+  // Temp connection line
+  if (proc.tempLineEl && proc.connSrc) {
+    const cwRect = cw.getBoundingClientRect();
+    const mx=(e.clientX-cwRect.left-proc.tx)/proc.sc;
+    const my=(e.clientY-cwRect.top-proc.ty)/proc.sc;
+    const srcN=proc.nodes.find(n=>n.id===proc.connSrc.id);
+    const side=(!proc.connSrc.side||proc.connSrc.side==='auto')?'r':proc.connSrc.side;
+    const p=portCenter(srcN,side);
+    proc.tempLineEl.setAttribute('x1',p.x); proc.tempLineEl.setAttribute('y1',p.y);
+    proc.tempLineEl.setAttribute('x2',mx);  proc.tempLineEl.setAttribute('y2',my);
+  }
+
+  // Label and area dragging
+  handleLabelDragMove(proc, e);
+  handleAreaDragMove(proc, e);
+});
+
+// ── Global mouseup ──
+window.addEventListener('mouseup', e => {
+  const proc = getP(); if (!proc) return;
+
+  if (_isDragging && proc._pendingCommit) {
+    proc.selNodes.forEach(sid => {
+      const sn = proc.nodes.find(x=>x.id===sid);
+      const ng = document.getElementById('n-'+proc.id+'-'+sid);
+      if (!sn||!ng) return;
+      const t = ng.getAttribute('transform');
+      if (t) {
+        const m = t.match(/translate\(([^,]+),([^)]+)\)/);
+        if (m) {
+          sn.x = Math.round(sn.x + parseFloat(m[1]));
+          sn.y = Math.round(sn.y + parseFloat(m[2]));
+          // Snap to grid
+          sn.x = snapToGrid(sn.x);
+          sn.y = snapToGrid(sn.y);
+        }
+        ng.removeAttribute('transform'); ng.remove(); drawNode(proc,sn);
+      }
+    });
+    [...proc.selNodes].forEach(sid=>redrawArrowsOf(proc,sid));
+    proc._pendingCommit = false;
+  }
+
+  if (_isRubber) {
+    const rbEl=document.getElementById('rubber-band-'+proc.id);
+    if(rbEl) rbEl.remove();
+    proc.rubberBand=null;
+  }
+
+  proc.dragOffsets=null; proc._pendingDrag=null; proc.resizing=null;
+  _isPanning=false; _isDragging=false; _isResizing=false; _isRubber=false;
+  handleAreaDragEnd(proc);
+  handleLabelDragEnd(proc);
+
+  // Keep cursor consistent with current mode
+  if (mode==='p') svg.className.baseVal='main panning';
+  else if (mode==='c') svg.className.baseVal='main connecting';
+  else svg.className.baseVal='main';
+  updSt();
+});
+
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  const proc = getP(); if (!proc) return;
+  const d = e.deltaY > 0 ? 0.9 : 1.1;
+  const rect = cw.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  proc.tx = mx - (mx - proc.tx) * d;
+  proc.ty = my - (my - proc.ty) * d;
+  proc.sc = Math.max(0.08, Math.min(3, proc.sc * d));
+  applyTransform(proc);
+  drawGrid();
+}, {passive:false});
+
+svg.addEventListener('dblclick', e => {
+  const proc = getP(); if (!proc) return;
+  if (mode === 'p') return; // no new nodes in pan mode
+  if (e.target === svg || e.target === root || e.target.id===('proc-'+proc.id)) {
+    const rect = cw.getBoundingClientRect();
+    const x = Math.round((e.clientX-rect.left-proc.tx)/proc.sc - NW/2);
+    const y = Math.round((e.clientY-rect.top-proc.ty)/proc.sc - 40);
+    pushH(proc);
+    const n = {id:proc.nid++,lane:'plan',x,y,w:NW,title:'Nueva actividad',resp:'',inp:'',out:'',sys:'',time:'',desc:''};
+    proc.nodes.push(n); drawNode(proc,n); updSt(); selectNode(proc,n.id);
+    setTimeout(()=>openNodeModal(proc,n.id),60);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODE
+// ═══════════════════════════════════════════════════════════════════════════
+function setMode(m) {
+  mode = m;
+  document.getElementById('bsel').classList.toggle('active', m==='s');
+  document.getElementById('bpan').classList.toggle('active', m==='p');
+  document.getElementById('bcon').classList.toggle('active', m==='c');
+  const ch = document.getElementById('mchip');
+  if (m==='s') { ch.className='mchip s'; ch.textContent='SELECCIONAR'; }
+  else if (m==='p') { ch.className='mchip p'; ch.textContent='MOVER MAPA'; }
+  else { ch.className='mchip c'; ch.textContent='CONECTAR'; }
+  if (m==='p') svg.className.baseVal='main panning';
+  else if (m==='c') svg.className.baseVal='main connecting';
+  else svg.className.baseVal='main';
+  const proc = getP();
+  if (proc && m!=='c') cancelConn(proc);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADD / DELETE
+// ═══════════════════════════════════════════════════════════════════════════
+function addNode(lane) {
+  const proc = getP(); if (!proc) return; pushH(proc);
+  const rect = cw.getBoundingClientRect();
+  const cx = (rect.width/2 - proc.tx)/proc.sc - NW/2;
+  const cy = (rect.height/2 - proc.ty)/proc.sc - 40;
+  const n = {id:proc.nid++,lane,x:Math.round(cx),y:Math.round(cy),w:NW,
+             title:'Nueva actividad',resp:'',inp:'',out:'',sys:'',time:'',desc:''};
+  proc.nodes.push(n); drawNode(proc,n); updSt(); selectNode(proc,n.id);
+  setTimeout(()=>openNodeModal(proc,n.id),60);
+}
+
+function deleteSelected() {
+  const proc = getP(); if (!proc) return;
+  if (deleteAreaOrLabel(proc)) { updSt(); return; }
+  if (proc.selNodes && proc.selNodes.size > 0) {
+    pushH(proc);
+    const ids = [...proc.selNodes];
+    deselectAll(proc);
+    // Remove arrows first
+    const arrowsToRemove = new Set();
+    ids.forEach(id => {
+      proc.arrows.filter(a=>a.from===id||a.to===id).forEach(a=>{
+        arrowsToRemove.add(a.id);
+        document.getElementById('a-'+proc.id+'-'+a.id)?.remove();
+      });
+    });
+    proc.arrows = proc.arrows.filter(a=>!arrowsToRemove.has(a.id));
+    // Remove node elements
+    ids.forEach(id => {
+      document.getElementById('n-'+proc.id+'-'+id)?.remove();
+    });
+    proc.nodes = proc.nodes.filter(n=>!ids.includes(n.id));
+    updSt();
+  } else if (proc.selArrow) {
+    pushH(proc);
+    const id = proc.selArrow;
+    proc.arrows = proc.arrows.filter(a=>a.id!==id);
+    document.getElementById('a-'+proc.id+'-'+id)?.remove();
+    proc.selArrow = null; updSt();
+  }
+}
+
+function delEditing() {
+  const proc = getP(); if(!proc||!proc.editId)return;
+  const eid = proc.editId;
+  // Close modal first
+  document.getElementById('m-node').classList.remove('open');
+  proc.editId = null;
+  // Now delete directly without going through selNodes
+  pushH(proc);
+  // Remove all arrows connected to this node
+  const toRemove = proc.arrows.filter(a=>a.from===eid||a.to===eid);
+  toRemove.forEach(a=>{
+    document.getElementById('a-'+proc.id+'-'+a.id)?.remove();
+  });
+  proc.arrows = proc.arrows.filter(a=>a.from!==eid&&a.to!==eid);
+  // Remove node from DOM
+  const nodeEl = document.getElementById('n-'+proc.id+'-'+eid);
+  if(nodeEl) nodeEl.remove();
+  // Remove from array
+  proc.nodes = proc.nodes.filter(n=>n.id!==eid);
+  proc.selNodes.clear();
+  proc.selArrow = null;
+  updSt();
+  showH('Actividad eliminada · Ctrl+Z para deshacer');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NODE MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+function openNodeModal(proc, nid) {
+  const n = proc.nodes.find(x=>x.id===nid); if(!n)return;
+  proc.editId = nid;
+  const b = getBadge(n.lane);
+  const mb = document.getElementById('mbadge');
+  mb.textContent = LANE[n.lane]?.label||''; mb.style.background=b.bg; mb.style.color=b.c;
+  document.getElementById('f-title').value = n.title||'';
+  document.getElementById('f-lane').value  = n.lane||'plan';
+  document.getElementById('f-resp').value  = n.resp||'';
+  document.getElementById('f-inp').value   = n.inp||'';
+  document.getElementById('f-out').value   = n.out||'';
+  document.getElementById('f-sys').value   = n.sys||'';
+  document.getElementById('f-time').value  = n.time||'';
+  document.getElementById('f-desc').value  = n.desc||'';
+  refreshLaneSelect(n.lane);
+  document.getElementById('m-node').classList.add('open');
+  setTimeout(()=>document.getElementById('f-title').focus(),80);
+}
+
+function saveNode() {
+  const proc = getP(); if(!proc||!proc.editId)return;
+  const n = proc.nodes.find(x=>x.id===proc.editId); if(!n)return;
+  pushH(proc);
+  n.title = document.getElementById('f-title').value.trim()||'Sin título';
+  n.lane  = document.getElementById('f-lane').value;
+  n.resp  = document.getElementById('f-resp').value;
+  n.inp   = document.getElementById('f-inp').value;
+  n.out   = document.getElementById('f-out').value;
+  n.sys   = document.getElementById('f-sys').value;
+  n.time  = document.getElementById('f-time').value;
+  n.desc  = document.getElementById('f-desc').value;
+  cm('m-node');
+  // Force full redraw of this node (content changed)
+  const ng = document.getElementById('n-'+proc.id+'-'+n.id);
+  if (ng) ng.remove();
+  drawNode(proc, n);
+  redrawAllA(proc);
+  updSt();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NEW PROCESS
+// ═══════════════════════════════════════════════════════════════════════════
+function pickTC(el) {
+  document.querySelectorAll('#tab-swatches .csw').forEach(s=>s.classList.remove('sel'));
+  el.classList.add('sel'); tabColor=el.dataset.c;
+}
+document.getElementById('tab-add').onclick = () => {
+  document.getElementById('np-name').value='';
+  document.getElementById('m-new').classList.add('open');
+  setTimeout(()=>document.getElementById('np-name').focus(),80);
+};
+function createProcess() {
+  const nm = document.getElementById('np-name').value.trim()||('Proceso '+(procs.length+1));
+  cm('m-new'); createProc(nm, tabColor);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MERGE
+// ═══════════════════════════════════════════════════════════════════════════
+function oMerge() {
+  mergeSet = new Set();
+  document.getElementById('merge-name').value='Vista combinada';
+  document.getElementById('merge-info').style.display='none';
+  const list = document.getElementById('merge-list');
+  list.innerHTML='';
+  procs.filter(p=>!p.isMerge).forEach(p=>{
+    const item = document.createElement('div');
+    item.className='proc-item';
+    item.innerHTML=`<span class="pi-dot" style="background:${p.color}"></span>
+      <span style="flex:1;font-size:12px;font-weight:600">${p.name}</span>
+      <span style="font-size:10px;color:#5a6a7a">${p.nodes.length} actividades</span>`;
+    item.addEventListener('click',()=>{
+      if(mergeSet.has(p.id)){mergeSet.delete(p.id);item.classList.remove('picked');}
+      else{mergeSet.add(p.id);item.classList.add('picked');}
+      updMergeInfo();
+    });
+    list.appendChild(item);
+  });
+  document.getElementById('m-merge').classList.add('open');
+}
+
+function updMergeInfo() {
+  const info = document.getElementById('merge-info');
+  if(mergeSet.size<2){info.style.display='none';return;}
+  const tot = [...mergeSet].reduce((s,pid)=>{
+    const p=procs.find(x=>x.id===pid);return{n:s.n+(p?p.nodes.length:0),a:s.a+(p?p.arrows.length:0)};
+  },{n:0,a:0});
+  info.style.display='block';
+  info.innerHTML=`✅ <strong>${mergeSet.size} procesos</strong> seleccionados · ${tot.n} actividades · ${tot.a} conexiones`;
+}
+
+function doMerge() {
+  if(mergeSet.size<2){showH('Selecciona al menos 2 procesos');return;}
+  const nm = document.getElementById('merge-name').value.trim()||'Vista combinada';
+  const allNodes=[], allArrows=[];
+  let offsetX=0;
+  [...mergeSet].forEach((pid,pi)=>{
+    const p=procs.find(x=>x.id===pid);if(!p)return;
+    const maxX=p.nodes.length?Math.max(...p.nodes.map(n=>n.x+n.w)):0;
+    const IDO=pi*100000;
+    p.nodes.forEach(n=>allNodes.push({...n,id:n.id+IDO,x:n.x+offsetX}));
+    p.arrows.forEach(a=>allArrows.push({...a,id:a.id+IDO,from:a.from+IDO,to:a.to+IDO}));
+    offsetX+=maxX+200;
+  });
+  cm('m-merge');
+  const merged = createProc(nm,'#15803d',allNodes,allArrows,true);
+  setTimeout(()=>fitViewP(merged),100);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ZOOM / FIT
+// ═══════════════════════════════════════════════════════════════════════════
+function fitView() { const p=getP(); if(p){ fitViewP(p); setTimeout(drawGrid,50); } }
+function fitViewP(proc) {
+  if(!proc.nodes.length)return;
+  const xs=proc.nodes.map(n=>n.x), ys=proc.nodes.map(n=>n.y);
+  const x2s=proc.nodes.map(n=>n.x+n.w), y2s=proc.nodes.map(n=>n.y+nodeHeight(n));
+  const minX=Math.min(...xs),minY=Math.min(...ys);
+  const maxX=Math.max(...x2s),maxY=Math.max(...y2s);
+  const pad=50, ww=cw.clientWidth, wh=cw.clientHeight;
+  proc.sc=Math.max(Math.min((ww-pad*2)/(maxX-minX),(wh-pad*2)/(maxY-minY),1.5),0.06);
+  proc.tx=pad-minX*proc.sc; proc.ty=pad-minY*proc.sc;
+  applyTransform(proc);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════════════════════════════════════════════
+function pushH(proc) {
+  proc.hist.push(JSON.stringify({
+    nodes:proc.nodes.map(n=>{const {_h,...rest}=n; return rest;}),
+    arrows:proc.arrows.map(a=>({...a})),
+    areas:(proc.areas||[]).map(a=>({...a})),
+    labels:(proc.labels||[]).map(l=>({...l})),
+    nid:proc.nid, aid:proc.aid, areaId:proc.areaId||1, labelId:proc.labelId||1
+  }));
+  if(proc.hist.length>50)proc.hist.shift();
+}
+function undoAction() {
+  const proc=getP();if(!proc||!proc.hist.length)return;
+  const s=JSON.parse(proc.hist.pop());
+  // Clear SVG
+  const nl=document.getElementById('nodes-'+proc.id); if(nl)nl.innerHTML='';
+  const al=document.getElementById('arrows-'+proc.id);if(al)al.innerHTML='';
+  proc.nodes=s.nodes.map(n=>({...n}));
+  proc.arrows=s.arrows.map(a=>({...a}));
+  proc.areas=(s.areas||[]).map(a=>({...a}));
+  proc.labels=(s.labels||[]).map(l=>({...l}));
+  proc.nid=s.nid; proc.aid=s.aid;
+  proc.areaId=s.areaId||1; proc.labelId=s.labelId||1;
+  proc.selNodes=new Set(); proc.selArrow=null;
+  (proc.areas||[]).forEach(a=>drawArea(proc,a));
+  proc.nodes.forEach(n=>drawNode(proc,n));
+  proc.arrows.forEach(a=>drawArrow(proc,a));
+  (proc.labels||[]).forEach(l=>drawLabel(proc,l));
+  updSt();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATUS / HINT
+// ═══════════════════════════════════════════════════════════════════════════
+function updSt() {
+  const proc=getP();if(!proc)return;
+  document.getElementById('st-n').textContent=proc.nodes.length+' actividades';
+  document.getElementById('st-a').textContent=proc.arrows.length+' conexiones';
+  const sel = proc.selNodes ? proc.selNodes.size : 0;
+  document.getElementById('st-proc').textContent=proc.name + (sel>1 ? '  ·  '+sel+' seleccionadas' : '');
+}
+let hT; function showH(m){const h=document.getElementById('hint');h.textContent=m;h.classList.toggle('show',!!m);clearTimeout(hT);if(m)hT=setTimeout(()=>h.classList.remove('show'),5000);}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════════════════════════════════════════
+function cm(id){document.getElementById(id).classList.remove('open');const p=getP();if(p)p.editId=null;}
+['m-node','m-new','m-merge','m-exp','m-area','m-label','m-label-edit','m-new-lane','m-manage-lanes'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',function(e){if(e.target===this)cm(id);});
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SAVE / LOAD / EXPORT
+// ═══════════════════════════════════════════════════════════════════════════
+function saveAll() {
+  const data={v:5,procCtr,customLanes:{...customLanes},procs:procs.map(p=>({
+    id:p.id,name:p.name,color:p.color,isMerge:p.isMerge,
+    nodes:p.nodes.map(n=>({...n})), arrows:p.arrows.map(a=>({...a})),
+    areas:(p.areas||[]).map(a=>({...a})), labels:(p.labels||[]).map(l=>({...l})),
+    nid:p.nid, aid:p.aid, areaId:p.areaId||1, labelId:p.labelId||1,
+    sc:p.sc, tx:p.tx, ty:p.ty
+  }))};
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+  a.download='mapeo_procesos.json'; a.click();
+  showH('✅ Todos los procesos guardados');
+}
+
+function loadAll() {
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+    r.onload=ev=>{try{
+      const d=JSON.parse(ev.target.result);
+      procs.forEach(p=>p.g.remove()); procs=[]; curPid=null;
+      procCtr=d.procCtr||1;
+      if(d.customLanes){ customLanes={...d.customLanes}; refreshLaneSelect(); }
+      d.procs.forEach(pd=>{
+        const p=createProc(pd.name,pd.color,pd.nodes,pd.arrows,pd.isMerge);
+        p.nid=pd.nid||p.nid; p.aid=pd.aid||p.aid;
+        p.areaId=pd.areaId||1; p.labelId=pd.labelId||1;
+        (pd.areas||[]).forEach(a=>{p.areas.push(a);drawArea(p,a);});
+        (pd.labels||[]).forEach(l=>{p.labels.push(l);drawLabel(p,l);});
+        if(pd.sc){p.sc=pd.sc;p.tx=pd.tx||40;p.ty=pd.ty||40;applyTransform(p);}
+      });
+      showH('✅ Procesos cargados');
+    }catch(err){alert('Error: '+err);}};r.readAsText(f);};inp.click();
+}
+
+function oExport(){
+  document.getElementById('exp-hint').style.display='none';
+  const proc=getP();
+  document.getElementById('exp-proc-name').textContent = proc ? proc.name : '';
+  document.getElementById('m-exp').classList.add('open');
+}
+
+async function doExport(fmt) {
+  const proc=getP();if(!proc)return;
+  if(fmt==='json-proc'){
+    const d={v:5,name:proc.name,nodes:proc.nodes.map(n=>({...n})),arrows:proc.arrows.map(a=>({...a})),nid:proc.nid,aid:proc.aid};
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));
+    a.download=proc.name.replace(/\s+/g,'_')+'.json';a.click();cm('m-exp');return;
+  }
+  if(fmt==='ppt'||fmt==='word'){
+    document.getElementById('exp-hint').style.display='block';
+    document.getElementById('exp-hint').innerHTML=
+      `<strong>Para ${fmt==='ppt'?'PowerPoint':'Word/Excel'}:</strong><br>
+       1. Exporta como PNG usando el botón de arriba<br>
+       2. En ${fmt==='ppt'?'PowerPoint':'Word/Excel'}: <strong>Insertar → Imágenes</strong> → selecciona el PNG descargado`;
+    return;
+  }
+  if(fmt==='svg'){
+    // Clone the SVG group and export
+    const pad=30;
+    const xs=proc.nodes.map(n=>n.x),ys=proc.nodes.map(n=>n.y);
+    const x2s=proc.nodes.map(n=>n.x+n.w),y2s=proc.nodes.map(n=>n.y+nodeHeight(n));
+    const minX=Math.min(...xs)-pad,minY=Math.min(...ys)-pad;
+    const W=Math.max(...x2s)+pad-minX,H=Math.max(...y2s)+pad-minY;
+    const clone=proc.g.cloneNode(true);
+    clone.setAttribute('transform','');
+    const svgOut=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="${minX} ${minY} ${W} ${H}">
+      <defs><marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M1 1L9 5L1 9" fill="none" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker></defs>
+      <rect x="${minX}" y="${minY}" width="${W}" height="${H}" fill="white"/>
+      ${clone.innerHTML}</svg>`;
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([svgOut],{type:'image/svg+xml'}));
+    a.download=proc.name.replace(/\s+/g,'_')+'.svg';a.click();cm('m-exp');return;
+  }
+  // PNG/JPG — use SVG serialization to canvas
+  showH('Generando imagen…');cm('m-exp');await new Promise(r=>setTimeout(r,200));
+  try{
+    const pad=30;
+    const xs=proc.nodes.map(n=>n.x),ys=proc.nodes.map(n=>n.y);
+    const x2s=proc.nodes.map(n=>n.x+n.w),y2s=proc.nodes.map(n=>n.y+nodeHeight(n));
+    const minX=Math.min(...xs)-pad,minY=Math.min(...ys)-pad;
+    const W=Math.max(...x2s)+pad-minX,H=Math.max(...y2s)+pad-minY;
+    const scale=2;
+    const clone=proc.g.cloneNode(true);
+    clone.setAttribute('transform','');
+    const svgStr=`<svg xmlns="http://www.w3.org/2000/svg" width="${W*scale}" height="${H*scale}" viewBox="${minX} ${minY} ${W} ${H}">
+      <defs><marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M1 1L9 5L1 9" fill="none" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker></defs>
+      <rect x="${minX}" y="${minY}" width="${W}" height="${H}" fill="white"/>
+      ${clone.innerHTML}</svg>`;
+    const blob=new Blob([svgStr],{type:'image/svg+xml'});
+    const url=URL.createObjectURL(blob);
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.createElement('canvas');
+      canvas.width=W*scale;canvas.height=H*scale;
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img,0,0);
+      URL.revokeObjectURL(url);
+      const lnk=document.createElement('a');
+      lnk.download=proc.name.replace(/\s+/g,'_')+'.'+(fmt==='jpg'?'jpg':'png');
+      lnk.href=canvas.toDataURL(fmt==='jpg'?'image/jpeg':'image/png',fmt==='jpg'?0.92:1);
+      lnk.click();showH('');
+    };
+    img.onerror=()=>{alert('Error al generar imagen');showH('');};
+    img.src=url;
+  }catch(err){alert('Error: '+err);showH('');}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// EXCEL IMPORT → current tab
+// ═══════════════════════════════════════════════════════════════════════════
+function importExcel() {
+  const proc = getP();
+  if (!proc) { alert('Primero selecciona una pestaña'); return; }
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.xlsx,.xlsm,.xls';
+  inp.onchange = e => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const wb = XLSX.read(ev.target.result, {type:'binary'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+
+        // Extract non-empty cells with their positions
+        const ref = ws['!ref'];
+        const range = XLSX.utils.decode_range(ref || 'A1:Z30');
+        
+        pushH(proc);
+        // Clear current nodes and arrows from this proc
+        proc.nodes.forEach(n => {
+          const el = document.getElementById('n-'+proc.id+'-'+n.id);
+          if (el) el.remove();
+        });
+        const al = document.getElementById('arrows-'+proc.id);
+        if (al) al.innerHTML = '';
+        proc.nodes = []; proc.arrows = [];
+        proc.selNodes.clear(); proc.selArrow = null;
+
+        const NW_IMPORT = 160;
+        const STEP_X = 200;
+        const STEP_Y = 200;
+        const LANES = ['plan','prea','cedis','dec'];
+        let nidLocal = 1;
+
+        // Map column index to x position
+        // Map row index to y position
+        // Find all cells with text content
+        const cellNodes = [];
+        for (let R = range.s.r; R <= range.e.r; R++) {
+          for (let C = range.s.c; C <= range.e.c; C++) {
+            const addr = XLSX.utils.encode_cell({r:R, c:C});
+            const cell = ws[addr];
+            if (cell && cell.v && String(cell.v).trim().length > 2) {
+              const text = String(cell.v).trim();
+              // Skip very short texts and section headers (usually uppercase short)
+              if (text.length < 3) continue;
+              cellNodes.push({
+                col: C, row: R,
+                title: text.slice(0, 120), // truncate very long text
+                x: 40 + C * STEP_X,
+                y: 40 + R * STEP_Y,
+              });
+            }
+          }
+        }
+
+        if (cellNodes.length === 0) {
+          alert('No se encontraron actividades en el Excel.');
+          return;
+        }
+
+        // Normalize positions: snap to grid
+        const minX = Math.min(...cellNodes.map(n=>n.x));
+        const minY = Math.min(...cellNodes.map(n=>n.y));
+
+        cellNodes.forEach((cn, i) => {
+          const n = {
+            id: proc.nid++,
+            lane: LANES[i % 4 < 2 ? 0 : i % 4 < 3 ? 1 : 2], // simple alternating
+            x: snapToGrid(cn.x - minX + 40),
+            y: snapToGrid(cn.y - minY + 40),
+            w: NW_IMPORT,
+            title: cn.title,
+            resp: '', inp: '', out: '', sys: '', time: '', desc: ''
+          };
+          proc.nodes.push(n);
+          drawNode(proc, n);
+        });
+
+        updSt();
+        setMode('s'); // auto-switch to select mode so nodes can be clicked
+        setTimeout(() => fitViewP(proc), 100);
+        showH(`✅ ${cellNodes.length} actividades importadas — clic para seleccionar, doble clic para editar, Supr para eliminar`);
+      } catch(err) {
+        alert('Error al leer el Excel: ' + err.message);
+        console.error(err);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+  inp.click();
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AREAS & LABELS
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _areaColor = {bg:'#dbeafe', bd:'#7ab8f5', tx:'#1e3a5f'};
+let _labelColor = '#1e3a5f';
+let _labelEditColor = '#1e3a5f';
+let _editingLabelId = null;
+const NS2 = 'http://www.w3.org/2000/svg';
+
+// ── Area SVG layer (drawn BEFORE arrows, below nodes) ──
+function areaLayerId(proc) { return 'area-layer-'+proc.id; }
+
+function ensureAreaLayer(proc) {
+  if (document.getElementById(areaLayerId(proc))) return;
+  const al = document.getElementById('arrows-'+proc.id);
+  const layer = document.createElementNS(NS2,'g');
+  layer.id = areaLayerId(proc);
+  al.parentNode.insertBefore(layer, al); // before arrows
+}
+
+function drawArea(proc, a) {
+  ensureAreaLayer(proc);
+  const gid = 'area-'+proc.id+'-'+a.id;
+  document.getElementById(gid)?.remove();
+  const layer = document.getElementById(areaLayerId(proc));
+
+  const g = document.createElementNS(NS2,'g');
+  g.id = gid;
+
+  // Background rect
+  const rect = document.createElementNS(NS2,'rect');
+  rect.setAttribute('x', a.x); rect.setAttribute('y', a.y);
+  rect.setAttribute('width', a.w); rect.setAttribute('height', a.h);
+  rect.setAttribute('rx', 12);
+  rect.setAttribute('fill', a.bg+'cc'); // semi-transparent
+  rect.setAttribute('stroke', a.bd);
+  rect.setAttribute('stroke-width', 2);
+  rect.setAttribute('stroke-dasharray', '8 4');
+  g.appendChild(rect);
+
+  // Title label at top-left
+  const txt2 = document.createElementNS(NS2,'text');
+  txt2.setAttribute('x', a.x + 12);
+  txt2.setAttribute('y', a.y + 18);
+  txt2.setAttribute('font-family', 'Segoe UI,Arial,sans-serif');
+  txt2.setAttribute('font-size', 13);
+  txt2.setAttribute('font-weight', 700);
+  txt2.setAttribute('fill', a.tx);
+  txt2.textContent = a.name;
+  g.appendChild(txt2);
+
+  // Selection ring
+  const selR = document.createElementNS(NS2,'rect');
+  selR.id = gid+'-sel';
+  selR.setAttribute('x', a.x-3); selR.setAttribute('y', a.y-3);
+  selR.setAttribute('width', a.w+6); selR.setAttribute('height', a.h+6);
+  selR.setAttribute('rx', 14); selR.setAttribute('fill', 'none');
+  selR.setAttribute('stroke', proc.selArea===a.id ? '#1a73e8' : 'none');
+  selR.setAttribute('stroke-width', 2.5); selR.setAttribute('pointer-events','none');
+  g.appendChild(selR);
+
+  // Resize handle (bottom-right)
+  const rh = document.createElementNS(NS2,'rect');
+  rh.setAttribute('x', a.x+a.w-14); rh.setAttribute('y', a.y+a.h-14);
+  rh.setAttribute('width', 14); rh.setAttribute('height', 14);
+  rh.setAttribute('rx', 3); rh.setAttribute('fill', a.bd);
+  rh.setAttribute('cursor', 'se-resize'); rh.setAttribute('opacity', 0.7);
+  g.appendChild(rh);
+
+  // Events
+  g.addEventListener('mousedown', e => {
+    if (e.target.getAttribute('cursor') === 'se-resize') {
+      e.stopPropagation();
+      pushH(proc);
+      proc.areaResizing = {id:a.id, startX:e.clientX, startY:e.clientY, startW:a.w, startH:a.h};
+      return;
+    }
+    if (mode !== 's') return;
+    e.stopPropagation();
+    // Select area
+    if (proc.selArea !== a.id) {
+      const prev = proc.selArea;
+      proc.selArea = a.id;
+      if (prev) {
+        const pSel = document.getElementById('area-'+proc.id+'-'+prev+'-sel');
+        if (pSel) pSel.setAttribute('stroke','none');
+      }
+      selR.setAttribute('stroke','#1a73e8');
+    }
+    // Drag
+    const cwRect = cw.getBoundingClientRect();
+    const mx0 = (e.clientX-cwRect.left-proc.tx)/proc.sc;
+    const my0 = (e.clientY-cwRect.top-proc.ty)/proc.sc;
+    proc._pendingAreaDrag = {id:a.id, dx:a.x-mx0, dy:a.y-my0, startCX:e.clientX, startCY:e.clientY};
+  });
+  g.addEventListener('dblclick', e => {
+    e.stopPropagation();
+    openAreaEdit(proc, a.id);
+  });
+
+  layer.appendChild(g);
+}
+
+function openAreaEdit(proc, aid) {
+  const a = proc.areas.find(x=>x.id===aid);
+  if (!a) return;
+  proc._editingAreaId = aid;
+  document.getElementById('area-name').value = a.name;
+  // Select matching color
+  document.querySelectorAll('#area-colors .csw').forEach(sw => {
+    sw.classList.toggle('sel', sw.dataset.bg === a.bg);
+    if (sw.dataset.bg === a.bg) sw.style.border='2px solid #1a1a2e';
+    else sw.style.border='2px solid transparent';
+  });
+  _areaColor = {bg:a.bg, bd:a.bd, tx:a.tx};
+  document.getElementById('area-w').value = Math.round(a.w);
+  document.getElementById('area-h').value = Math.round(a.h);
+  document.getElementById('m-area').classList.add('open');
+}
+
+function removeAreaEl(proc, aid) {
+  document.getElementById('area-'+proc.id+'-'+aid)?.remove();
+}
+
+// ── Area mouse handlers (in window mousemove/up) ──
+function handleAreaDragMove(proc, e) {
+  if (proc._pendingAreaDrag) {
+    const d = proc._pendingAreaDrag;
+    const moved = Math.abs(e.clientX-d.startCX)>4 || Math.abs(e.clientY-d.startCY)>4;
+    if (moved) {
+      pushH(proc);
+      proc._areaDragging = proc._pendingAreaDrag;
+      proc._pendingAreaDrag = null;
+    }
+  }
+  if (proc._areaDragging) {
+    const d = proc._areaDragging;
+    const a = proc.areas.find(x=>x.id===d.id);
+    if (!a) return;
+    const cwRect = cw.getBoundingClientRect();
+    const mx = (e.clientX-cwRect.left-proc.tx)/proc.sc;
+    const my = (e.clientY-cwRect.top-proc.ty)/proc.sc;
+    a.x = snapToGrid(Math.round(mx + d.dx));
+    a.y = snapToGrid(Math.round(my + d.dy));
+    drawArea(proc, a);
+  }
+  if (proc.areaResizing) {
+    const r = proc.areaResizing;
+    const a = proc.areas.find(x=>x.id===r.id);
+    if (!a) return;
+    const dxPx = (e.clientX - r.startX)/proc.sc;
+    const dyPx = (e.clientY - r.startY)/proc.sc;
+    a.w = Math.max(100, snapToGrid(Math.round(r.startW + dxPx)));
+    a.h = Math.max(60,  snapToGrid(Math.round(r.startH + dyPx)));
+    drawArea(proc, a);
+  }
+}
+
+function handleAreaDragEnd(proc) {
+  proc._pendingAreaDrag = null;
+  proc._areaDragging = null;
+  proc.areaResizing = null;
+}
+
+// ── Label drawing ──
+function labelLayerId(proc) { return 'label-layer-'+proc.id; }
+
+function ensureLabelLayer(proc) {
+  if (document.getElementById(labelLayerId(proc))) return;
+  const nodesLayer = document.getElementById('nodes-'+proc.id);
+  const layer = document.createElementNS(NS2,'g');
+  layer.id = labelLayerId(proc);
+  nodesLayer.parentNode.insertBefore(layer, nodesLayer); // before nodes, after arrows
+}
+
+function drawLabel(proc, l) {
+  ensureLabelLayer(proc);
+  const gid = 'lbl-'+proc.id+'-'+l.id;
+  document.getElementById(gid)?.remove();
+  const layer = document.getElementById(labelLayerId(proc));
+
+  const g = document.createElementNS(NS2,'g');
+  g.id = gid; g.setAttribute('cursor','pointer');
+
+  // Background for easier clicking
+  const bg = document.createElementNS(NS2,'rect');
+  bg.id = gid+'-bg';
+  bg.setAttribute('x', l.x-4); bg.setAttribute('y', l.y-parseInt(l.size||20)-2);
+  bg.setAttribute('rx', 4); bg.setAttribute('fill','transparent');
+  g.appendChild(bg);
+
+  // Text element
+  const txt2 = document.createElementNS(NS2,'text');
+  txt2.id = gid+'-txt';
+  txt2.setAttribute('x', l.x); txt2.setAttribute('y', l.y);
+  txt2.setAttribute('font-family','Segoe UI,Arial,sans-serif');
+  txt2.setAttribute('font-size', l.size||20);
+  txt2.setAttribute('font-weight', l.weight||700);
+  txt2.setAttribute('fill', l.color||'#1e3a5f');
+  txt2.textContent = l.text;
+  g.appendChild(txt2);
+
+  // Selection underline
+  const selLine = document.createElementNS(NS2,'line');
+  selLine.id = gid+'-sel';
+  selLine.setAttribute('stroke', proc.selLabel===l.id ? '#1a73e8' : 'none');
+  selLine.setAttribute('stroke-width', 2); selLine.setAttribute('stroke-dasharray','4 2');
+  g.appendChild(selLine);
+
+  // Size bg after render (approximate)
+  const approxW = l.text.length * (parseInt(l.size||20)*0.6);
+  const approxH = parseInt(l.size||20) + 6;
+  bg.setAttribute('width', approxW+8); bg.setAttribute('height', approxH);
+  selLine.setAttribute('x1', l.x); selLine.setAttribute('y1', l.y+4);
+  selLine.setAttribute('x2', l.x+approxW); selLine.setAttribute('y2', l.y+4);
+
+  // Events
+  g.addEventListener('mousedown', e => {
+    if (mode !== 's') return;
+    e.stopPropagation();
+    // Select
+    const prev = proc.selLabel;
+    proc.selLabel = l.id;
+    if (prev && prev!==l.id) {
+      const ps = document.getElementById('lbl-'+proc.id+'-'+prev+'-sel');
+      if (ps) ps.setAttribute('stroke','none');
+    }
+    selLine.setAttribute('stroke','#1a73e8');
+    // Drag
+    const cwRect = cw.getBoundingClientRect();
+    const mx0 = (e.clientX-cwRect.left-proc.tx)/proc.sc;
+    const my0 = (e.clientY-cwRect.top-proc.ty)/proc.sc;
+    proc._pendingLabelDrag = {id:l.id, dx:l.x-mx0, dy:l.y-my0, startCX:e.clientX, startCY:e.clientY};
+  });
+  g.addEventListener('dblclick', e => { e.stopPropagation(); openLabelEdit(proc, l.id); });
+
+  layer.appendChild(g);
+}
+
+function handleLabelDragMove(proc, e) {
+  if (proc._pendingLabelDrag) {
+    const d = proc._pendingLabelDrag;
+    if (Math.abs(e.clientX-d.startCX)>4 || Math.abs(e.clientY-d.startCY)>4) {
+      pushH(proc);
+      proc._labelDragging = proc._pendingLabelDrag;
+      proc._pendingLabelDrag = null;
+    }
+  }
+  if (proc._labelDragging) {
+    const d = proc._labelDragging;
+    const l = proc.labels.find(x=>x.id===d.id);
+    if (!l) return;
+    const cwRect = cw.getBoundingClientRect();
+    const mx = (e.clientX-cwRect.left-proc.tx)/proc.sc;
+    const my = (e.clientY-cwRect.top-proc.ty)/proc.sc;
+    l.x = snapToGrid(Math.round(mx + d.dx));
+    l.y = snapToGrid(Math.round(my + d.dy));
+    drawLabel(proc, l);
+  }
+}
+function handleLabelDragEnd(proc) {
+  proc._pendingLabelDrag = null; proc._labelDragging = null;
+}
+
+// ── Color pickers ──
+function pickAreaColor(el) {
+  document.querySelectorAll('#area-colors .csw').forEach(s=>{s.classList.remove('sel');s.style.border='2px solid transparent';});
+  el.classList.add('sel'); el.style.border='2px solid #1a1a2e';
+  _areaColor = {bg:el.dataset.bg, bd:el.dataset.bd, tx:el.dataset.tx};
+}
+function pickLabelColor(el) {
+  document.querySelectorAll('#lbl-colors .csw').forEach(s=>s.style.border='2px solid transparent');
+  el.style.border='2px solid #1a1a2e'; _labelColor = el.dataset.c;
+}
+function pickLabelEditColor(el) {
+  document.querySelectorAll('#lbl-edit-colors .csw').forEach(s=>s.style.border='2px solid transparent');
+  el.style.border='2px solid #1a1a2e'; _labelEditColor = el.dataset.c;
+}
+
+// ── Create ──
+function oAddArea() {
+  const proc = getP(); if (!proc) return;
+  proc._editingAreaId = null;
+  document.getElementById('area-name').value = '';
+  document.getElementById('area-w').value = 400;
+  document.getElementById('area-h').value = 240;
+  document.getElementById('m-area').classList.add('open');
+  setTimeout(()=>document.getElementById('area-name').focus(), 80);
+}
+
+function createArea() {
+  const proc = getP(); if (!proc) return;
+  const name = document.getElementById('area-name').value.trim() || 'Nueva área';
+  const w = parseInt(document.getElementById('area-w').value) || 400;
+  const h = parseInt(document.getElementById('area-h').value) || 240;
+  pushH(proc);
+  const cwRect = cw.getBoundingClientRect();
+  const cx = snapToGrid(Math.round((-proc.tx + cwRect.width/2)/proc.sc - w/2));
+  const cy = snapToGrid(Math.round((-proc.ty + cwRect.height/2)/proc.sc - h/2));
+
+  if (proc._editingAreaId) {
+    // Edit existing
+    const a = proc.areas.find(x=>x.id===proc._editingAreaId);
+    if (a) { a.name=name; a.w=w; a.h=h; a.bg=_areaColor.bg; a.bd=_areaColor.bd; a.tx=_areaColor.tx; drawArea(proc,a); }
+  } else {
+    const a = {id:proc.areaId++, name, x:cx, y:cy, w, h, ..._areaColor};
+    proc.areas.push(a); drawArea(proc, a);
+  }
+  cm('m-area');
+}
+
+function addLabel() {
+  document.getElementById('lbl-text').value = '';
+  document.getElementById('lbl-size').value = '20';
+  document.getElementById('lbl-style').value = '600';
+  document.getElementById('m-label').classList.add('open');
+  setTimeout(()=>document.getElementById('lbl-text').focus(), 80);
+}
+
+function createLabel() {
+  const proc = getP(); if (!proc) return;
+  const text = document.getElementById('lbl-text').value.trim();
+  if (!text) { document.getElementById('lbl-text').focus(); return; }
+  const size = parseInt(document.getElementById('lbl-size').value) || 20;
+  const weight = document.getElementById('lbl-style').value || '700';
+  pushH(proc);
+  const cwRect = cw.getBoundingClientRect();
+  const x = snapToGrid(Math.round((-proc.tx + 80)/proc.sc));
+  const y = snapToGrid(Math.round((-proc.ty + 80)/proc.sc));
+  const l = {id:proc.labelId++, text, x, y, size, weight, color:_labelColor};
+  proc.labels.push(l); drawLabel(proc, l);
+  cm('m-label');
+}
+
+// ── Edit Label ──
+function openLabelEdit(proc, lid) {
+  const l = proc.labels.find(x=>x.id===lid); if (!l) return;
+  _editingLabelId = lid; _labelEditColor = l.color||'#1e3a5f';
+  document.getElementById('lbl-edit-text').value = l.text;
+  document.getElementById('lbl-edit-size').value = String(l.size||20);
+  document.getElementById('lbl-edit-style').value = String(l.weight||700);
+  document.querySelectorAll('#lbl-edit-colors .csw').forEach(s=>{
+    s.style.border = s.dataset.c===l.color ? '2px solid #1a1a2e' : '2px solid transparent';
+  });
+  document.getElementById('m-label-edit').classList.add('open');
+  setTimeout(()=>document.getElementById('lbl-edit-text').focus(), 80);
+}
+
+function saveLabelEdit() {
+  const proc = getP(); if (!proc || !_editingLabelId) return;
+  const l = proc.labels.find(x=>x.id===_editingLabelId); if (!l) return;
+  pushH(proc);
+  l.text   = document.getElementById('lbl-edit-text').value.trim() || l.text;
+  l.size   = parseInt(document.getElementById('lbl-edit-size').value)||20;
+  l.weight = document.getElementById('lbl-edit-style').value||'700';
+  l.color  = _labelEditColor;
+  drawLabel(proc, l); cm('m-label-edit');
+}
+
+function deleteLabelEditing() {
+  const proc = getP(); if (!proc || !_editingLabelId) return;
+  pushH(proc);
+  document.getElementById('lbl-'+proc.id+'-'+_editingLabelId)?.remove();
+  proc.labels = proc.labels.filter(x=>x.id!==_editingLabelId);
+  _editingLabelId = null; cm('m-label-edit'); updSt();
+}
+
+// ── Delete selected area or label ──
+function deleteAreaOrLabel(proc) {
+  if (proc.selArea) {
+    pushH(proc);
+    removeAreaEl(proc, proc.selArea);
+    proc.areas = proc.areas.filter(a=>a.id!==proc.selArea);
+    proc.selArea = null; return true;
+  }
+  if (proc.selLabel) {
+    pushH(proc);
+    document.getElementById('lbl-'+proc.id+'-'+proc.selLabel)?.remove();
+    proc.labels = proc.labels.filter(l=>l.id!==proc.selLabel);
+    proc.selLabel = null; return true;
+  }
+  return false;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CUSTOM LANES
+// ═══════════════════════════════════════════════════════════════════════════
+let _nlColor = {bg:'#e0f2fe', bd:'#38bdf8', hd:'#bae6fd', tx:'#0c4a6e'};
+
+function pickNLColor(el) {
+  document.querySelectorAll('#nl-colors .csw').forEach(s=>{
+    s.style.border='2px solid transparent'; s.classList.remove('sel');
+  });
+  el.style.border='2px solid #1a1a2e'; el.classList.add('sel');
+  _nlColor = {bg:el.dataset.bg, bd:el.dataset.bd, hd:el.dataset.hd, tx:el.dataset.tx};
+  const prev = document.getElementById('nl-preview');
+  if(prev){ prev.style.background=_nlColor.bg; prev.style.color=_nlColor.tx;
+    prev.style.border='1.5px solid '+_nlColor.bd; }
+}
+
+function oNewLane() {
+  document.getElementById('nl-name').value='';
+  // Reset preview
+  const prev=document.getElementById('nl-preview');
+  if(prev){prev.style.background=_nlColor.bg;prev.style.color=_nlColor.tx;prev.style.border='1.5px solid '+_nlColor.bd;prev.textContent='Nuevo carril';}
+  document.getElementById('m-new-lane').classList.add('open');
+  // Keep node modal open below
+  setTimeout(()=>document.getElementById('nl-name').focus(), 80);
+}
+
+function saveNewLane() {
+  const name = document.getElementById('nl-name').value.trim();
+  if(!name){document.getElementById('nl-name').focus();return;}
+  // Generate a key from name
+  const key = 'custom_' + name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  if(customLanes[key]){showH('Ya existe un carril con ese nombre');return;}
+  customLanes[key] = {
+    label: name,
+    bg: _nlColor.bg, bd: _nlColor.bd,
+    hd: _nlColor.hd || _nlColor.bg, tx: _nlColor.tx
+  };
+  cm('m-new-lane');
+  // Refresh the lane select
+  refreshLaneSelect(key);
+  showH('✅ Carril "'+name+'" creado');
+}
+
+function refreshLaneSelect(selectValue) {
+  const sel = document.getElementById('f-lane');
+  if(!sel) return;
+  // Keep built-in options, remove old custom options
+  Array.from(sel.options).forEach(opt=>{
+    if(opt.value.startsWith('custom_')) opt.remove();
+  });
+  // Add all custom lanes
+  Object.entries(customLanes).forEach(([key,lc])=>{
+    const opt = document.createElement('option');
+    opt.value=key; opt.textContent=lc.label;
+    sel.appendChild(opt);
+  });
+  // Select the new one if provided
+  if(selectValue) sel.value = selectValue;
+}
+
+function oManageLanes() {
+  const list = document.getElementById('lanes-list');
+  list.innerHTML = '';
+  // Built-in lanes
+  const builtinDiv = document.createElement('div');
+  builtinDiv.style.cssText='margin-bottom:12px';
+  builtinDiv.innerHTML='<div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Carriles estándar</div>';
+  Object.entries(LANE_BUILTIN).forEach(([key,lc])=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:10px;padding:6px 10px;background:#f8f9fa;border-radius:6px;margin-bottom:4px';
+    row.innerHTML=`<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${lc.bg};border:1.5px solid ${lc.bd}"></span>
+      <span style="font-size:12px;font-weight:600;flex:1">${lc.label}</span>
+      <span style="font-size:10px;color:#94a3b8">Estándar</span>`;
+    builtinDiv.appendChild(row);
+  });
+  list.appendChild(builtinDiv);
+
+  // Custom lanes
+  if(Object.keys(customLanes).length > 0) {
+    const custDiv=document.createElement('div');
+    custDiv.innerHTML='<div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Carriles personalizados</div>';
+    Object.entries(customLanes).forEach(([key,lc])=>{
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:10px;padding:6px 10px;background:#f8f9fa;border-radius:6px;margin-bottom:4px';
+      row.innerHTML=`<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${lc.bg};border:1.5px solid ${lc.bd}"></span>
+        <span style="font-size:12px;font-weight:600;flex:1">${lc.label}</span>
+        <button onclick="deleteLane('${key}')" style="padding:2px 8px;border-radius:6px;border:1px solid #fca5a5;background:#fff;color:#c62828;font-size:11px;cursor:pointer">Eliminar</button>`;
+      custDiv.appendChild(row);
+    });
+    list.appendChild(custDiv);
+  } else {
+    const empty=document.createElement('p');
+    empty.style.cssText='font-size:11px;color:#94a3b8;text-align:center;padding:12px';
+    empty.textContent='No hay carriles personalizados aún. Usa "+ Nuevo carril" para crear uno.';
+    list.appendChild(empty);
+  }
+
+  document.getElementById('m-manage-lanes').classList.add('open');
+}
+
+function deleteLane(key) {
+  if(!confirm('¿Eliminar el carril "'+customLanes[key]?.label+'"? Las actividades que usen este carril quedarán en color azul (Planeación) por defecto.'))return;
+  delete customLanes[key];
+  // Reassign nodes using this lane to 'plan'
+  procs.forEach(proc=>{
+    proc.nodes.filter(n=>n.lane===key).forEach(n=>{
+      n.lane='plan';
+      const ng=document.getElementById('n-'+proc.id+'-'+n.id);
+      if(ng){ng.remove(); drawNode(proc,n);}
+    });
+  });
+  cm('m-manage-lanes');
+  showH('Carril eliminado');
+}
+
+// Live preview when typing lane name
+document.addEventListener('DOMContentLoaded', ()=>{
+  const nlName=document.getElementById('nl-name');
+  if(nlName) nlName.addEventListener('input',()=>{
+    const prev=document.getElementById('nl-preview');
+    if(prev) prev.textContent=nlName.value||'Nuevo carril';
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONTEXT MENU (right-click on nodes)
+// ═══════════════════════════════════════════════════════════════════════════
+let _ctxProc = null, _ctxNid = null;
+
+function showCtxMenu(proc, nid, clientX, clientY) {
+  _ctxProc = proc; _ctxNid = nid;
+  const menu = document.getElementById('ctx-menu');
+  menu.classList.add('open');
+  // Position avoiding screen edges
+  const mw = 190, mh = 120;
+  const left = Math.min(clientX, window.innerWidth - mw - 10);
+  const top  = Math.min(clientY, window.innerHeight - mh - 10);
+  menu.style.left = left + 'px';
+  menu.style.top  = top  + 'px';
+}
+
+function hideCtxMenu() {
+  document.getElementById('ctx-menu').classList.remove('open');
+  _ctxProc = null; _ctxNid = null;
+}
+
+function ctxEdit() {
+  if (_ctxProc && _ctxNid) openNodeModal(_ctxProc, _ctxNid);
+  hideCtxMenu();
+}
+
+function ctxDelete() {
+  if (_ctxProc && _ctxNid) {
+    _ctxProc.selNodes.clear();
+    _ctxProc.selNodes.add(_ctxNid);
+    deleteSelected();
+  }
+  hideCtxMenu();
+}
+
+function ctxDuplicate() {
+  if (!_ctxProc || !_ctxNid) { hideCtxMenu(); return; }
+  const proc = _ctxProc;
+  const orig = proc.nodes.find(n=>n.id===_ctxNid);
+  if (!orig) { hideCtxMenu(); return; }
+  pushH(proc);
+  const n = {...orig, id:proc.nid++, x:orig.x+20, y:orig.y+20};
+  delete n._h;
+  proc.nodes.push(n);
+  drawNode(proc, n);
+  selectNode(proc, n.id);
+  updSt();
+  showH('Actividad duplicada — arrástrala a su posición');
+  hideCtxMenu();
+}
+
+// Close context menu on any click outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('#ctx-menu')) hideCtxMenu();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') hideCtxMenu();
+}, true);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GRID & SNAP
+// ═══════════════════════════════════════════════════════════════════════════
+const SNAP = 20; // grid size in canvas pixels
+let _gridOn = true; // grid visible by default
+
+function drawGrid() {
+  const canvas = document.getElementById('grid-canvas');
+  if (!canvas) return;
+  const proc = getP();
+  canvas.width  = cw.clientWidth;
+  canvas.height = cw.clientHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!_gridOn || !proc) return;
+
+  const sc = proc.sc, tx = proc.tx, ty = proc.ty;
+  // Only draw dots if zoom is reasonable
+  if (sc < 0.3) return;
+
+  const dotR  = Math.max(0.8, Math.min(1.8, sc * 1.2));
+  const step  = SNAP; // canvas units
+  // Compute first visible grid point
+  const startX = Math.ceil(-tx / sc / step) * step;
+  const startY = Math.ceil(-ty / sc / step) * step;
+  const endX   = (cw.clientWidth  - tx) / sc;
+  const endY   = (cw.clientHeight - ty) / sc;
+
+  ctx.fillStyle = '#bfdbfe'; // soft blue dots
+  for (let gx = startX; gx <= endX; gx += step) {
+    for (let gy = startY; gy <= endY; gy += step) {
+      const px = gx * sc + tx;
+      const py = gy * sc + ty;
+      ctx.beginPath();
+      ctx.arc(px, py, dotR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function toggleGrid() {
+  _gridOn = !_gridOn;
+  document.getElementById('btn-grid').classList.toggle('active', _gridOn);
+  drawGrid();
+}
+
+function snapToGrid(val) {
+  return Math.round(val / SNAP) * SNAP;
+}
+
+// Redraw grid on zoom/pan (no override needed - called directly from pan/zoom handlers)
+window.addEventListener('resize', drawGrid);
+setTimeout(() => { drawGrid(); document.getElementById('btn-grid').classList.add('active'); }, 300);
+
+document.addEventListener('keydown',e=>{
+  const open=['m-node','m-new','m-merge','m-exp','m-area','m-label','m-label-edit'].some(id=>document.getElementById(id).classList.contains('open'));
+  if(open)return;
+  const proc=getP();if(!proc)return;
+  if((e.key==='Delete'||(e.key==='Backspace'&&e.target.tagName!=='INPUT'&&e.target.tagName!=='TEXTAREA')))
+    deleteSelected();
+  if(e.key==='v'||e.key==='V')setMode('s');
+  if(e.key==='m'||e.key==='M')setMode('p');
+  if(e.key==='c'||e.key==='C')setMode('c');
+  if(e.key==='g'||e.key==='G')toggleGrid();
+  if(e.key==='Escape'){ const proc2=getP(); if(proc2)cancelConn(proc2); setMode('s'); }
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undoAction();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='a'){
+    e.preventDefault();
+    proc.selNodes=new Set(proc.nodes.map(n=>n.id));
+    proc.nodes.forEach(n=>{
+      const sel=document.getElementById('n-'+proc.id+'-'+n.id+'-sel');
+      if(sel){sel.setAttribute('stroke','#1a73e8');sel.setAttribute('opacity','0.9');}
+    });
+    updSt();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DATOS INCRUSTADOS — Se actualizan al usar "Guardar todo"
+// ═══════════════════════════════════════════════════════════════════════════
+const EMBEDDED_DATA = {"v": 5, "procCtr": 4, "customLanes": {"custom_talento_humano_jefes_coordinadores_de_rea_entidades_externas_emermedica_compensar_coosepark_bancolombia_recordar_progressa_sura_seguros_bolivar_comfenalco_antioquia_valle": {"label": "Talento Humano Jefes/ Coordinadores de área Entidades Externas (Emermedica- Compensar- Coosepark- bancolombia- Recordar- Progressa- Sura- Seguros Bolivar- Comfenalco Antioquia/ Valle)", "bg": "#e0f2fe", "bd": "#38bdf8", "hd": "#bae6fd", "tx": "#0c4a6e"}, "custom_analista_de_nomina": {"label": "Analista de nomina", "bg": "#e0f2fe", "bd": "#38bdf8", "hd": "#bae6fd", "tx": "#0c4a6e"}, "custom_asistente_contable__lider_contable": {"label": "Asistente contable / Lider contable", "bg": "#fef3c7", "bd": "#fbbf24", "hd": "#fde68a", "tx": "#78350f"}, "custom_tesoreria__subgerencia": {"label": "Tesoreria / Subgerencia", "bg": "#ffe4e6", "bd": "#fb7185", "hd": "#fecdd3", "tx": "#881337"}, "custom_desarrollo_organizacional": {"label": "Desarrollo Organizacional", "bg": "#ffe4e6", "bd": "#fb7185", "hd": "#fecdd3", "tx": "#881337"}}, "procs": [{"id": 2, "name": "Nomina", "color": "#3b82f6", "isMerge": false, "nodes": [{"id": 11, "lane": "custom_analista_de_nomina", "x": 340, "y": 1060, "w": 160, "title": "Se crean carpetas por concepto de la nomina con sus debidos soportes   Archivo de novedades", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 110}, {"id": 12, "lane": "custom_analista_de_nomina", "x": 900, "y": 1040, "w": 160, "title": "Se cargan las novedades del archivo maestro a Buk", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 95}, {"id": 13, "lane": "custom_analista_de_nomina", "x": 1160, "y": 1020, "w": 160, "title": "Verificar   las novedades (auxilio de transporte, aumentos, personal) que se aplicaron con el fin de garantizar  la apli", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 125}, {"id": 14, "lane": "custom_analista_de_nomina", "x": 1460, "y": 1040, "w": 160, "title": "Genera la prenomina a traves de Buk", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 15, "lane": "custom_analista_de_nomina", "x": 1900, "y": 960, "w": 160, "title": "El analista de nomina valida y aplica correciones", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 95}, {"id": 16, "lane": "custom_analista_de_nomina", "x": 2160, "y": 960, "w": 160, "title": "Realiza envío nuevamente de la prenomina", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 20, "lane": "custom_talento_humano_jefes_coordinadores_de_rea_entidades_externas_emermedica_compensar_coosepark_bancolombia_recordar_progressa_sura_seguros_bolivar_comfenalco_antioquia_valle", "x": 40, "y": 1240, "w": 160, "title": "Recepción de novedades (Incapacidades, vacaciones, facturación, suspensiones,bonificaciones, aumentos, ingresos/Retiro", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 140}, {"id": 21, "lane": "custom_analista_de_nomina", "x": 660, "y": 1260, "w": 160, "title": "Se realiza archivo maestro teniendo en cuenta las novedades reportadas", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 110}, {"id": 22, "lane": "custom_analista_de_nomina", "x": 1460, "y": 1200, "w": 160, "title": "Envío de prenomina para validación  por parte del area financiera", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 95}, {"id": 23, "lane": "custom_asistente_contable__lider_contable", "x": 1900, "y": 1120, "w": 160, "title": "Se envía al analista de nomina para correciones", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 28, "lane": "custom_analista_de_nomina", "x": 340, "y": 1460, "w": 243, "title": "Se debe buscar con cada una de los proveedores de servicio las facturas, si no se reciben en el tiempo , se procede a tomar valores de mes anterior. Y se solicita de manera urgente a los lideres las novedades si aún no se han enviado.", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 155}, {"id": 29, "lane": "custom_asistente_contable__lider_contable", "x": 1460, "y": 1400, "w": 160, "title": "Realización de auditoria con el fin de Validar la nomina", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 95}, {"id": 30, "lane": "custom_asistente_contable__lider_contable", "x": 1680, "y": 1420, "w": 160, "title": "Audita y aprueba", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 65}, {"id": 31, "lane": "custom_asistente_contable__lider_contable", "x": 2160, "y": 1400, "w": 160, "title": "Se audita y aprueba para contabilización", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 32, "lane": "custom_analista_de_nomina", "x": 2440, "y": 1380, "w": 160, "title": "Se contabiliza la nomina en Odoo a través del archivo plano generado en Buk", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 110}, {"id": 33, "lane": "custom_analista_de_nomina", "x": 2720, "y": 1380, "w": 160, "title": "Se genera y envia el archivo plano para que el analista de tesoreria realice el pago", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 110}, {"id": 34, "lane": "custom_tesoreria__subgerencia", "x": 2980, "y": 1400, "w": 160, "title": "Solicita Autorización para pago", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 35, "lane": "custom_tesoreria__subgerencia", "x": 3220, "y": 1400, "w": 160, "title": "Aprueba pago", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 65}, {"id": 36, "lane": "custom_tesoreria__subgerencia", "x": 3460, "y": 1380, "w": 160, "title": "Se realiza el pago de la nomina y se debe enviar el soporte del giro al analista de nomina.", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 110}, {"id": 37, "lane": "custom_analista_de_nomina", "x": 3680, "y": 1380, "w": 160, "title": "Se  descargar el archivo plano de Buk correspondiente al pago de la nomina", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 110}, {"id": 38, "lane": "custom_analista_de_nomina", "x": 3920, "y": 1360, "w": 160, "title": "Se  carga archivo plano y se realiza la conciliación en Odoo de las cuentas contables de la nomina (2505, 1365, 2380)", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 140}, {"id": 39, "lane": "custom_analista_de_nomina", "x": 4180, "y": 1400, "w": 160, "title": "Fin", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 65}], "arrows": [{"id": 1, "from": 20, "to": 11, "fp": "r", "tp": "l"}, {"id": 2, "from": 20, "to": 28, "fp": "r", "tp": "l"}, {"id": 3, "from": 11, "to": 21, "fp": "r", "tp": "l"}, {"id": 4, "from": 28, "to": 21, "fp": "r", "tp": "l"}, {"id": 5, "from": 21, "to": 12, "fp": "r", "tp": "l"}, {"id": 6, "from": 12, "to": 13, "fp": "r", "tp": "l"}, {"id": 7, "from": 13, "to": 14, "fp": "r", "tp": "l"}, {"id": 8, "from": 14, "to": 22, "fp": "b", "tp": "t"}, {"id": 9, "from": 22, "to": 29, "fp": "b", "tp": "t"}, {"id": 10, "from": 29, "to": 30, "fp": "r", "tp": "l"}, {"id": 11, "from": 30, "to": 23, "fp": "t", "tp": "b"}, {"id": 12, "from": 23, "to": 15, "fp": "t", "tp": "b"}, {"id": 13, "from": 15, "to": 16, "fp": "r", "tp": "l"}, {"id": 14, "from": 16, "to": 31, "fp": "b", "tp": "t"}, {"id": 15, "from": 31, "to": 30, "fp": "l", "tp": "r"}, {"id": 16, "from": 31, "to": 32, "fp": "r", "tp": "l"}, {"id": 17, "from": 32, "to": 33, "fp": "r", "tp": "l"}, {"id": 18, "from": 33, "to": 34, "fp": "r", "tp": "l"}, {"id": 19, "from": 34, "to": 35, "fp": "r", "tp": "l"}, {"id": 20, "from": 35, "to": 36, "fp": "r", "tp": "l"}, {"id": 21, "from": 36, "to": 37, "fp": "r", "tp": "l"}, {"id": 22, "from": 37, "to": 38, "fp": "r", "tp": "l"}, {"id": 23, "from": 38, "to": 39, "fp": "r", "tp": "l"}], "areas": [], "labels": [{"id": 1, "text": "SI", "x": 240, "y": 1120, "size": 20, "weight": "600", "color": "#1a5c2a"}, {"id": 2, "text": "NO", "x": 240, "y": 1520, "size": 20, "weight": "600", "color": "#7c2d12"}, {"id": 3, "text": "NO", "x": 1940, "y": 1300, "size": 20, "weight": "600", "color": "#7f1d1d"}, {"id": 4, "text": "SI", "x": 2000, "y": 1440, "size": 20, "weight": "600", "color": "#1a5c2a"}], "nid": 51, "aid": 24, "areaId": 1, "labelId": 5, "sc": 1.0892854950318007, "tx": -1369.4221098283256, "ty": -972.3492896004877}, {"id": 3, "name": "FLUJO OPERACION INGRESOS", "color": "#3b82f6", "isMerge": false, "nodes": [{"id": 7, "lane": "custom_analista_de_nomina", "x": 540, "y": 1060, "w": 160, "title": "Realizar documentos contractuales (contrato, otrosí, acuerdo de confidencialidad)", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 110}, {"id": 8, "lane": "custom_analista_de_nomina", "x": 1080, "y": 1040, "w": 160, "title": "Se realiza el envío de los documentos contractuales y afiliaciones a Desarrollo Organizacional, además del formato de us", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 155}, {"id": 9, "lane": "custom_desarrollo_organizacional", "x": 1340, "y": 1060, "w": 160, "title": "Se llama al colaborador para la firma de la documentación", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 95}, {"id": 10, "lane": "custom_desarrollo_organizacional", "x": 1600, "y": 1060, "w": 160, "title": "Se le devuelve a nómina los formatos de afiliaciones pendientes firmados por el colaborador", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 125}, {"id": 11, "lane": "custom_desarrollo_organizacional", "x": 1860, "y": 1060, "w": 160, "title": "Se gestiona la firma del representante legal y demás participantes en los documentos contractuales", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 125}, {"id": 12, "lane": "custom_desarrollo_organizacional", "x": 2140, "y": 1080, "w": 160, "title": "Se archiva en carpetas físicas y digitales y se sube a Buk", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 95}, {"id": 18, "lane": "custom_desarrollo_organizacional", "x": 40, "y": 1240, "w": 160, "title": "Envío de Fullkit de ingreso a nómina", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 19, "lane": "custom_desarrollo_organizacional", "x": 280, "y": 1260, "w": 160, "title": "Documentación completa", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 65}, {"id": 20, "lane": "custom_desarrollo_organizacional", "x": 540, "y": 1260, "w": 160, "title": "Se envía la información faltante", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 21, "lane": "custom_analista_de_nomina", "x": 840, "y": 1260, "w": 160, "title": "Creación de colaborador en Odoo (Contacto y empleado)  y Buk (Empleado y Contrato)", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 110}, {"id": 23, "lane": "custom_analista_de_nomina", "x": 1600, "y": 1240, "w": 160, "title": "Nómina envía las afiliaciones faltantes (que requerían firma del colaborador)", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 110}, {"id": 24, "lane": "custom_desarrollo_organizacional", "x": 2140, "y": 1260, "w": 160, "title": "Se insiste hasta obtener firmas", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 31, "lane": "custom_analista_de_nomina", "x": 540, "y": 1460, "w": 160, "title": "Se debe solicitar la información faltante", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 32, "lane": "custom_analista_de_nomina", "x": 840, "y": 1420, "w": 160, "title": "Realizar afiliación a ARL, EPS, CCF, EMERMEDICA (si aplica), MEDICINA PREPAGADA (si aplica)", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 125}, {"id": 35, "lane": "custom_analista_de_nomina", "x": 1080, "y": 1420, "w": 535, "title": "Aclaración Odoo: Se crea el contacto y el empleado en Odoo con el fin de que se puedan realizar la firma de solicitudes a traves de Odoo y tambien con el fin de que la contabilización de la nomina quede asignado al tercero.                              BUK: Se crea el empleado y el contrato, en esta sección se podrá obtener la información del cargo actualizado, jefe inmediato, salario actualizado y la demás información privada.", "resp": "ACLARACIÓN", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 125}], "arrows": [{"id": 1, "from": 18, "to": 19, "fp": "r", "tp": "l"}, {"id": 2, "from": 19, "to": 7, "fp": "r", "tp": "l"}, {"id": 3, "from": 19, "to": 31, "fp": "r", "tp": "l"}, {"id": 4, "from": 31, "to": 20, "fp": "t", "tp": "b"}, {"id": 5, "from": 7, "to": 20, "fp": "b", "tp": "t"}, {"id": 6, "from": 7, "to": 32, "fp": "b", "tp": "t"}, {"id": 7, "from": 31, "to": 32, "fp": "r", "tp": "l"}, {"id": 8, "from": 32, "to": 21, "fp": "t", "tp": "b"}, {"id": 9, "from": 21, "to": 8, "fp": "r", "tp": "l"}, {"id": 10, "from": 8, "to": 9, "fp": "r", "tp": "l"}, {"id": 11, "from": 9, "to": 10, "fp": "r", "tp": "l"}, {"id": 12, "from": 10, "to": 11, "fp": "r", "tp": "l"}, {"id": 13, "from": 10, "to": 23, "fp": "b", "tp": "t"}, {"id": 14, "from": 11, "to": 12, "fp": "r", "tp": "l"}, {"id": 15, "from": 11, "to": 24, "fp": "r", "tp": "l"}, {"id": 16, "from": 21, "to": 35, "fp": "b", "tp": "t"}], "areas": [], "labels": [{"id": 1, "text": "SI", "x": 460, "y": 1140, "size": 20, "weight": "600", "color": "#1a5c2a"}, {"id": 2, "text": "NO", "x": 460, "y": 1500, "size": 20, "weight": "600", "color": "#7f1d1d"}, {"id": 3, "text": "NO", "x": 2080, "y": 1300, "size": 20, "weight": "600", "color": "#7f1d1d"}, {"id": 4, "text": "SI", "x": 2080, "y": 1140, "size": 20, "weight": "600", "color": "#1a5c2a"}], "nid": 36, "aid": 17, "areaId": 1, "labelId": 5, "sc": 0.9017257524458008, "tx": -207.18402871437456, "ty": -877.3081155816101}, {"id": 4, "name": "FLUJO OPERACION RETIROS", "color": "#3b82f6", "isMerge": false, "nodes": [{"id": 10, "lane": "custom_analista_de_nomina", "x": 500, "y": 1100, "w": 160, "title": "Realizar liquidación de contrato en excel y Buk", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 11, "lane": "custom_analista_de_nomina", "x": 1540, "y": 1000, "w": 160, "title": "Envío de liquidación a financiera para revisión", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 12, "lane": "custom_asistente_contable__lider_contable", "x": 1740, "y": 1000, "w": 160, "title": "Revision de liquidación", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 65}, {"id": 13, "lane": "custom_asistente_contable__lider_contable", "x": 1940, "y": 1000, "w": 160, "title": "¿Correcta?", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 65}, {"id": 14, "lane": "custom_asistente_contable__lider_contable", "x": 2180, "y": 1000, "w": 160, "title": "Se confirma a nómina mediante correo que se encuentra correcta", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 95}, {"id": 15, "lane": "custom_analista_de_nomina", "x": 2420, "y": 1000, "w": 160, "title": "Se sube a Odoo y/o BUK para firma del representante legal", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 95}, {"id": 16, "lane": "custom_analista_de_nomina", "x": 2680, "y": 980, "w": 160, "title": "Se procede a realizar el resto del Fullkit (Certificación laboral, carta de retiro de cesantías (si aplica) y certificad", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 140}, {"id": 17, "lane": "custom_desarrollo_organizacional", "x": 2900, "y": 980, "w": 160, "title": "Se envía liquidación y fullkit de retiro a Desarrollo organizacional, con copia a Financiera y tesorería", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 140}, {"id": 18, "lane": "custom_desarrollo_organizacional", "x": 3120, "y": 1020, "w": 160, "title": "Se envían correos de desafiliaciones", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 19, "lane": "custom_desarrollo_organizacional", "x": 3340, "y": 1020, "w": 160, "title": "¿La persona se encuentra en Bogotá?", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 20, "lane": "custom_desarrollo_organizacional", "x": 3540, "y": 1000, "w": 160, "title": "Se contacta al colaborador para firma del Fullkit y demás documentos a que haya lugar", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 125}, {"id": 21, "lane": "custom_desarrollo_organizacional", "x": 3740, "y": 1020, "w": 160, "title": "Se consolidan documentos firmados", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 22, "lane": "custom_desarrollo_organizacional", "x": 3940, "y": 1040, "w": 160, "title": "Se envían los documentos firmados a todos los implicados", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 95}, {"id": 23, "lane": "custom_tesoreria__subgerencia", "x": 4140, "y": 1040, "w": 160, "title": "Se paga la liquidación", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 65}, {"id": 24, "lane": "custom_analista_de_nomina", "x": 4360, "y": 1040, "w": 160, "title": "Se contabiliza pago de liquidación", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 39, "lane": "custom_desarrollo_organizacional", "x": 40, "y": 1240, "w": 160, "title": "Envío de notificación de terminación de contrato o carta de retiro por correo electrónico", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 110}, {"id": 40, "lane": "custom_desarrollo_organizacional", "x": 260, "y": 1260, "w": 160, "title": "Documentación completa", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 65}, {"id": 41, "lane": "custom_desarrollo_organizacional", "x": 500, "y": 1260, "w": 160, "title": "Envío de la información faltante", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 42, "lane": "custom_analista_de_nomina", "x": 740, "y": 1240, "w": 160, "title": "Verificación de si tiene libranzas y deducciones a aplicar", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 95}, {"id": 43, "lane": "custom_analista_de_nomina", "x": 940, "y": 1240, "w": 160, "title": "Solicitud a entidades de valores a aplicar en liquidación", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 95}, {"id": 44, "lane": "custom_analista_de_nomina", "x": 1160, "y": 1240, "w": 160, "title": "Envío de información por parte de entidades", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 45, "lane": "custom_analista_de_nomina", "x": 1380, "y": 1240, "w": 160, "title": "Finalizacion de la liquidación", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 46, "lane": "custom_asistente_contable__lider_contable", "x": 2180, "y": 1240, "w": 160, "title": "Solicitud a nómina de corrección", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 47, "lane": "custom_desarrollo_organizacional", "x": 3540, "y": 1220, "w": 160, "title": "Se contacta con una persona que esté en la ciudad para su apoyo en la firma de la documentación", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 125}, {"id": 57, "lane": "custom_analista_de_nomina", "x": 500, "y": 1420, "w": 160, "title": "Se debe solicitar la información faltante", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 58, "lane": "custom_analista_de_nomina", "x": 2180, "y": 1400, "w": 160, "title": "Se corrigen errores", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 65}, {"id": 59, "lane": "custom_analista_de_nomina", "x": 2440, "y": 1400, "w": 160, "title": "Se vuelve a enviar a financiera para revisión", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}, {"id": 63, "lane": "custom_analista_de_nomina", "x": 2440, "y": 1560, "w": 160, "title": "No se aprueba hasta que se corrijan", "resp": "", "inp": "", "out": "", "sys": "", "time": "", "desc": "", "_h": 80}], "arrows": [{"id": 1, "from": 39, "to": 40, "fp": "r", "tp": "l"}, {"id": 2, "from": 40, "to": 10, "fp": "r", "tp": "l"}, {"id": 3, "from": 40, "to": 57, "fp": "r", "tp": "l"}, {"id": 4, "from": 57, "to": 41, "fp": "t", "tp": "b"}, {"id": 5, "from": 10, "to": 42, "fp": "r", "tp": "l"}, {"id": 6, "from": 42, "to": 43, "fp": "r", "tp": "l"}, {"id": 7, "from": 42, "to": 11, "fp": "r", "tp": "l"}, {"id": 8, "from": 43, "to": 44, "fp": "r", "tp": "l"}, {"id": 9, "from": 44, "to": 45, "fp": "r", "tp": "l"}, {"id": 10, "from": 45, "to": 11, "fp": "t", "tp": "b"}, {"id": 11, "from": 11, "to": 12, "fp": "r", "tp": "l"}, {"id": 12, "from": 12, "to": 13, "fp": "r", "tp": "l"}, {"id": 13, "from": 13, "to": 14, "fp": "r", "tp": "l"}, {"id": 14, "from": 13, "to": 46, "fp": "b", "tp": "t"}, {"id": 15, "from": 46, "to": 58, "fp": "b", "tp": "t"}, {"id": 16, "from": 58, "to": 59, "fp": "r", "tp": "l"}, {"id": 17, "from": 58, "to": 63, "fp": "r", "tp": "l"}, {"id": 18, "from": 59, "to": 14, "fp": "t", "tp": "b"}, {"id": 19, "from": 14, "to": 15, "fp": "r", "tp": "l"}, {"id": 20, "from": 15, "to": 16, "fp": "r", "tp": "l"}, {"id": 21, "from": 16, "to": 17, "fp": "r", "tp": "l"}, {"id": 22, "from": 17, "to": 18, "fp": "r", "tp": "l"}, {"id": 23, "from": 18, "to": 19, "fp": "r", "tp": "l"}, {"id": 24, "from": 19, "to": 20, "fp": "r", "tp": "l"}, {"id": 25, "from": 19, "to": 47, "fp": "b", "tp": "t"}, {"id": 26, "from": 47, "to": 21, "fp": "t", "tp": "b"}, {"id": 27, "from": 20, "to": 21, "fp": "r", "tp": "l"}, {"id": 28, "from": 21, "to": 22, "fp": "r", "tp": "l"}, {"id": 29, "from": 22, "to": 23, "fp": "r", "tp": "l"}, {"id": 30, "from": 23, "to": 24, "fp": "r", "tp": "l"}], "areas": [], "labels": [{"id": 1, "text": "NO", "x": 420, "y": 1460, "size": 20, "weight": "600", "color": "#7f1d1d"}, {"id": 2, "text": "SI", "x": 420, "y": 1160, "size": 20, "weight": "600", "color": "#1a5c2a"}, {"id": 3, "text": "SI", "x": 920, "y": 1340, "size": 20, "weight": "600", "color": "#1a5c2a"}, {"id": 4, "text": "NO", "x": 900, "y": 1000, "size": 20, "weight": "600", "color": "#7f1d1d"}, {"id": 5, "text": "SI", "x": 2160, "y": 1020, "size": 20, "weight": "600", "color": "#1a5c2a"}, {"id": 6, "text": "NO", "x": 2140, "y": 1320, "size": 20, "weight": "600", "color": "#7f1d1d"}, {"id": 7, "text": "SI", "x": 2420, "y": 1420, "size": 20, "weight": "600", "color": "#1a5c2a"}, {"id": 8, "text": "NO", "x": 2400, "y": 1640, "size": 20, "weight": "600", "color": "#7f1d1d"}, {"id": 9, "text": "SI", "x": 3520, "y": 1040, "size": 20, "weight": "600", "color": "#1a5c2a"}, {"id": 10, "text": "NO", "x": 3500, "y": 1240, "size": 20, "weight": "600", "color": "#7f1d1d"}], "nid": 65, "aid": 31, "areaId": 1, "labelId": 11, "sc": 0.5308048862853842, "tx": -306.15719982255905, "ty": -285.15960222227193}]};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTO-SAVE — Guarda en localStorage cada vez que hay cambios
+// ═══════════════════════════════════════════════════════════════════════════
+const LS_KEY = 'mapeo_coditeq_v5';
+
+function autoSave() {
+  try {
+    const data = {
+      v: 5, procCtr, customLanes: {...customLanes},
+      procs: procs.map(p => ({
+        id: p.id, name: p.name, color: p.color, isMerge: p.isMerge,
+        nodes: p.nodes.map(n => ({...n})),
+        arrows: p.arrows.map(a => ({...a})),
+        areas: (p.areas || []).map(a => ({...a})),
+        labels: (p.labels || []).map(l => ({...l})),
+        nid: p.nid, aid: p.aid,
+        areaId: p.areaId || 1, labelId: p.labelId || 1,
+        sc: p.sc, tx: p.tx, ty: p.ty
+      }))
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  } catch(e) { console.warn('AutoSave error:', e); }
+}
+
+// Interceptar saveAll para también actualizar datos incrustados en UI
+const _origSaveAll = saveAll;
+function saveAll() {
+  _origSaveAll();
+  autoSave();
+  showH('✅ Guardado — los cambios se mantienen al reabrir');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CARGA INICIAL — localStorage > datos incrustados
+// ═══════════════════════════════════════════════════════════════════════════
+function loadInitialData() {
+  // Intentar cargar desde localStorage primero
+  let source = null;
+  let sourceName = '';
+  try {
+    const saved = localStorage.getItem(LS_KEY);
+    if (saved) {
+      source = JSON.parse(saved);
+      sourceName = 'localStorage (sesión guardada)';
+    }
+  } catch(e) {}
+
+  // Si no hay localStorage, usar datos incrustados
+  if (!source) {
+    source = EMBEDDED_DATA;
+    sourceName = 'datos incrustados';
+  }
+
+  // Limpiar procesos actuales
+  procs.forEach(p => p.g.remove());
+  procs = []; curPid = null;
+
+  procCtr = source.procCtr || 1;
+  if (source.customLanes) {
+    customLanes = {...source.customLanes};
+    refreshLaneSelect();
+  }
+
+  source.procs.forEach(pd => {
+    const p = createProc(pd.name, pd.color, pd.nodes, pd.arrows, pd.isMerge);
+    p.nid = pd.nid || p.nid;
+    p.aid = pd.aid || p.aid;
+    p.areaId = pd.areaId || 1;
+    p.labelId = pd.labelId || 1;
+    (pd.areas || []).forEach(a => { p.areas.push(a); drawArea(p, a); });
+    (pd.labels || []).forEach(l => { p.labels.push(l); drawLabel(p, l); });
+    if (pd.sc) { p.sc = pd.sc; p.tx = pd.tx || 40; p.ty = pd.ty || 40; applyTransform(p); }
+  });
+
+  // Activar primer proceso y ajustar vista
+  if (procs.length > 0) {
+    switchTo(procs[0].id);
+    setTimeout(() => { const p = getP(); if (p) fitViewP(p); }, 150);
+  }
+  console.log('✅ Cargado desde:', sourceName, '—', source.procs.length, 'procesos');
+}
+
+// Auto-guardar al hacer cualquier cambio (con debounce de 1s)
+let _autoSaveTimer = null;
+const _origPushHistory = pushHistory;
+function pushHistory(proc) {
+  _origPushHistory(proc);
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(autoSave, 1000);
+}
+
+// Iniciar carga
+loadInitialData();
+</script>
+</body>
+</html>
